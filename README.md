@@ -2,7 +2,7 @@
 
 Android app (Jetpack Compose, Material 3) for tracking remote work hours and quota compliance, built for German companies with ArbZG (Working Hours Act) rules, the Bavarian holiday calendar and SAP time statement ("Zeitnachweis") PDF import.
 
-The business logic lives in the Kotlin Multiplatform module `shared/`, the user interface in `androidApp/`. This repository contains the **Android part only**; the iOS app (SwiftUI) lives in the main project `remote-quota-guard` and uses the same `shared/` module.
+The business logic lives in the Kotlin Multiplatform module `shared/`, the user interface in `androidApp/`. This repository contains the **Android part only**; the iOS app (SwiftUI) lives in the main project `remote-quota-iOSApp` (formerly `remote-quota-guard`) and uses the same `shared/` module.
 
 ## Build the app
 
