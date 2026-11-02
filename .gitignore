@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Android
+local.properties
+*.apk
+*.aab
+
+# iOS
+iosApp/Pods/
+iosApp/*.xcworkspace
+iosApp/build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Kotlin
+*.kotlin_metadata
+
+# Generated
+shared/build/
+androidApp/build/

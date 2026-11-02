@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- exports (CSV, PDF, backup) are written to cache/shared only -->
+    <cache-path name="shared" path="shared/" />
+</paths>
