@@ -24,6 +24,52 @@ object TrackerCalculations {
         } else 0
     }
 
+    /**
+     * Minutes the time system deducts from the booked time of ONE day. Derived from real statements:
+     * none up to 6 h; above 6 h 30 min, but never below 6 h net; above 9 h 45 min, but never below 9 h net.
+     * Gaps between the day's bookings already count as break.
+     */
+    fun statementBreakMinutes(workMinutes: Int, gapMinutes: Int = 0): Int {
+        val required = when {
+            workMinutes <= 360 -> 0
+            workMinutes <= 390 -> workMinutes - 360
+            workMinutes <= 570 -> 30
+            else -> minOf(45, workMinutes - 540)
+        }
+        return maxOf(0, required - maxOf(0, gapMinutes))
+    }
+
+    /**
+     * Break minutes per session for the sessions (start, end as "HH:mm") of ONE day, in the order given.
+     * The deduction of the day goes to the longest session (spilling over to the next longest
+     * one when a session is too short to carry it).
+     */
+    fun assignStatementBreaks(sessions: List<Pair<String, String>>): List<Double> {
+        if (sessions.isEmpty()) return emptyList()
+        val spans = sessions.map { (start, end) ->
+            val s = timeToMinutes(start)
+            val e = timeToMinutes(end).let { if (it < s) it + 24 * 60 else it }
+            s to e
+        }
+        val ordered = spans.sortedBy { it.first }
+        val work = ordered.sumOf { it.second - it.first }
+        var gaps = 0
+        for (i in 0 until ordered.size - 1) gaps += maxOf(0, ordered[i + 1].first - ordered[i].second)
+        val deduction = statementBreakMinutes(work, gaps).toDouble()
+        // Longest session first (first one on ties); a session never carries more than its own length,
+        // the rest of the day's deduction moves on to the next longest one.
+        val lengths = spans.map { it.second - it.first }
+        val result = MutableList(spans.size) { 0.0 }
+        var remaining = deduction
+        for (i in spans.indices.sortedWith(compareBy({ -lengths[it] }, { it }))) {
+            if (remaining <= 0.0) break
+            val part = minOf(remaining, lengths[i].toDouble())
+            result[i] = part
+            remaining -= part
+        }
+        return result
+    }
+
     fun calculateNetHours(startTime: String, endTime: String, pauseMinutes: Double): TimeResult {
         val startMin = timeToMinutes(startTime)
         var endMin = timeToMinutes(endTime)
@@ -104,6 +150,16 @@ object TrackerCalculations {
         return null
     }
 
+    /**
+     * Company-specific special days that are not public holidays but are credited in the time statement:
+     * 24 Dec is off (0), 31 Dec is a half day (0.5). Every other day counts fully (1).
+     */
+    fun specialDayFactor(month: Int, day: Int): Double = when {
+        month == 12 && day == 24 -> 0.0
+        month == 12 && day == 31 -> 0.5
+        else -> 1.0
+    }
+
     fun calculateSollStundenMonth(year: Int, month: Int, sollStundenProTag: Double): Double {
         val firstDay = LocalDate(year, month, 1)
         val lastDay = LocalDate(year, month, 1).plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY)
@@ -119,7 +175,7 @@ object TrackerCalculations {
                 dayOfWeek != DayOfWeek.SUNDAY &&
                 !BavarianHolidays.isHoliday(dateString)
             ) {
-                totalHours += sollStundenProTag
+                totalHours += sollStundenProTag * specialDayFactor(currentDay.monthNumber, currentDay.dayOfMonth)
             }
 
             currentDay = currentDay.plus(1, DateTimeUnit.DAY)

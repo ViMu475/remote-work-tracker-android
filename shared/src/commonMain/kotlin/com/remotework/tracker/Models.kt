@@ -42,7 +42,9 @@ data class TrackerState(
     val individuelleQuoteProzent: Double = 40.0,
     val sollStundenProTag: Double = 8.0,
     val language: String = "de",
-    val darkMode: Boolean = false
+    val darkMode: Boolean = false,
+    /** Flextime balance of the last imported statement (null until a statement with a balance is imported). */
+    val gleitzeitSaldo: FlexBalance? = null
 )
 
 object MonthNames {

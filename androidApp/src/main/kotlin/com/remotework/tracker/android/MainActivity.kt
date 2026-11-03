@@ -1,45 +1,58 @@
 package com.remotework.tracker.android
 
 import android.content.Intent
+import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import com.remotework.tracker.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Locale
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
-import com.remotework.tracker.*
-import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -74,11 +87,12 @@ internal val translations = mapOf(
         "report_rule" to "Bewertung je Quartal: bis 90 % des Remote-Limits gut, bis 100 % knapp, darüber überschritten.",
         "soll" to "Soll",
         "max_remote" to "Max Remote",
+        "flex_balance" to "GLZ-Saldo (Nachweis)",
         "ist_remote" to "Ist Remote",
         "remaining" to "Verbleibend",
         "confirm_delete" to "Wirklich löschen?",
         "confirm_close" to "Monat wirklich abschließen?",
-        "pdf_import" to "PDF Import",
+        "pdf_import" to "PDF importieren",
         "remote_hours" to "Remote-Stunden",
         "available_months" to "Verfügbare Monate",
         "entry_saved" to "Eintrag gespeichert",
@@ -86,6 +100,7 @@ internal val translations = mapOf(
         "all_deleted" to "Alles gelöscht",
         "clear_confirm" to "Wirklich alles löschen? Historie, Einträge und Einstellungen werden zurückgesetzt.",
         "month_closed" to "abgeschlossen",
+        "month_empty" to "enthält keine Einträge und wurde nicht in die Historie aufgenommen",
         "date_label" to "Datum (YYYY-MM-DD)",
         "start_label" to "Start (HH:MM)",
         "end_label" to "Ende (HH:MM)",
@@ -100,9 +115,9 @@ internal val translations = mapOf(
         "no_entries_found" to "Keine Einträge gefunden",
         "record_time" to "Arbeitszeit erfassen",
         "quote_label" to "Quote",
-        "csv_export" to "CSV Export",
-        "pdf_report" to "PDF Bericht",
-        "backup" to "Backup",
+        "csv_export" to "CSV exportieren",
+        "pdf_report" to "PDF exportieren",
+        "backup" to "Backup erstellen",
         "restore" to "Wiederherstellen",
         "backup_success" to "Backup erstellt",
         "restore_success" to "Daten wiederhergestellt",
@@ -114,7 +129,26 @@ internal val translations = mapOf(
         "restore_confirm" to "Alle aktuellen Daten durch das Backup ersetzen?",
         "confirm_yes" to "Ja",
         "language" to "Sprache wechseln",
-        "dark_mode" to "Dark Mode"
+        "dark_mode" to "Dunkelmodus",
+        "empty_hint" to "Erfasse deinen ersten Arbeitstag, um die Remote-Quote zu verfolgen.",
+        "first_entry" to "Ersten Eintrag erfassen",
+        "danger_zone" to "Gefahrenzone",
+        "invalid_date" to "Ungültiges Datum (JJJJ-MM-TT)",
+        "invalid_time" to "Ungültige Zeitangabe!",
+        "progress_desc" to "%s von %s Stunden",
+        "used_percent" to "%s %% genutzt",
+        "file_too_big" to "Datei zu groß oder nicht lesbar",
+        "read_error" to "Lesefehler",
+        "edit_entry_for" to "Eintrag %s bearbeiten",
+        "delete_entry_for" to "Eintrag %s löschen",
+        "report_month_one" to "Monat",
+        "report_month_over_one" to "Monat über Limit",
+        "report_quarter_one" to "Quartal",
+        "report_quarters" to "Quartale",
+        "report_remote" to "Remote",
+        "pause_warning" to "WARNUNG: Pause (%sh) < gesetzl. Minimum (%sh)!",
+        "switch_on" to "an",
+        "switch_off" to "aus"
     ),
     "en" to mapOf(
         "add_entry" to "Add Entry",
@@ -145,11 +179,12 @@ internal val translations = mapOf(
         "report_rule" to "Rating per quarter: up to 90 % of the remote limit good, up to 100 % tight, above that exceeded.",
         "soll" to "Target",
         "max_remote" to "Max Remote",
+        "flex_balance" to "Flextime balance (statement)",
         "ist_remote" to "Actual Remote",
         "remaining" to "Remaining",
         "confirm_delete" to "Really delete?",
         "confirm_close" to "Really close this month?",
-        "pdf_import" to "PDF Import",
+        "pdf_import" to "Import PDF",
         "remote_hours" to "Remote Hours",
         "available_months" to "Available Months",
         "entry_saved" to "Entry saved",
@@ -157,6 +192,7 @@ internal val translations = mapOf(
         "all_deleted" to "All deleted",
         "clear_confirm" to "Really delete everything? History, entries and settings will be reset.",
         "month_closed" to "closed",
+        "month_empty" to "has no entries and was not added to the history",
         "date_label" to "Date (YYYY-MM-DD)",
         "start_label" to "Start (HH:MM)",
         "end_label" to "End (HH:MM)",
@@ -170,10 +206,10 @@ internal val translations = mapOf(
         "errors" to "Errors",
         "no_entries_found" to "No entries found",
         "record_time" to "Record Work Time",
-        "quote_label" to "Quote",
-        "csv_export" to "CSV Export",
-        "pdf_report" to "PDF Report",
-        "backup" to "Backup",
+        "quote_label" to "Quota",
+        "csv_export" to "Export CSV",
+        "pdf_report" to "Export PDF",
+        "backup" to "Create backup",
         "restore" to "Restore",
         "backup_success" to "Backup created",
         "restore_success" to "Data restored",
@@ -185,11 +221,33 @@ internal val translations = mapOf(
         "restore_confirm" to "Replace all current data with the backup?",
         "confirm_yes" to "Yes",
         "language" to "Switch language",
-        "dark_mode" to "Dark mode"
+        "dark_mode" to "Dark mode",
+        "empty_hint" to "Record your first work day to track your remote quota.",
+        "first_entry" to "Record first entry",
+        "danger_zone" to "Danger zone",
+        "invalid_date" to "Invalid date (YYYY-MM-DD)",
+        "invalid_time" to "Invalid time!",
+        "progress_desc" to "%s of %s hours",
+        "used_percent" to "%s %% used",
+        "file_too_big" to "File too large or not readable",
+        "read_error" to "Read error",
+        "edit_entry_for" to "Edit entry %s",
+        "delete_entry_for" to "Delete entry %s",
+        "report_month_one" to "month",
+        "report_month_over_one" to "month over limit",
+        "report_quarter_one" to "quarter",
+        "report_quarters" to "quarters",
+        "report_remote" to "Remote",
+        "pause_warning" to "WARNING: break (%sh) shorter than statutory minimum (%sh)!",
+        "switch_on" to "on",
+        "switch_off" to "off"
     )
 )
 
 internal fun t(key: String, lang: String): String = translations[lang]?.get(key) ?: key
+
+/** Content column width on wide screens (landscape, tablets). */
+private val MaxContentWidth = 640.dp
 
 class MainActivity : ComponentActivity() {
 
@@ -197,13 +255,25 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         val storage = LocalStorage(applicationContext)
         repository = TrackerRepository(storage)
 
         setContent {
             val state = remember { mutableStateOf(repository.loadState()) }
-            RemoteWorkTrackerTheme(darkMode = state.value.darkMode) {
+            val dark = state.value.darkMode
+            // The app bar is the brand colour (dark indigo in light mode, light indigo in dark mode):
+            // status bar icons must contrast with it; the navigation bar is transparent over the page.
+            DisposableEffect(dark) {
+                val transparent = AndroidColor.TRANSPARENT
+                enableEdgeToEdge(
+                    statusBarStyle = if (dark) SystemBarStyle.light(transparent, transparent) else SystemBarStyle.dark(transparent),
+                    navigationBarStyle = if (dark) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, transparent)
+                )
+                onDispose { }
+            }
+            RemoteWorkTrackerTheme(darkMode = dark) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -216,33 +286,35 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun cardSurface(dark: Long = 0xFF374151, light: Long = 0xFFF3F4F6): Color =
-    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(dark) else Color(light)
+private fun largeFont(): Boolean = LocalDensity.current.fontScale > 1.15f
 
-// Feature 4: Dark Mode
+private val ButtonMinHeight = 48.dp
+
 @Composable
-fun RemoteWorkTrackerTheme(darkMode: Boolean = false, content: @Composable () -> Unit) {
-    val colorScheme = if (darkMode) {
-        darkColorScheme(
-            primary = Color(0xFF2563EB),
-            background = Color(0xFF1F2937),
-            surface = Color(0xFF141922),
-            onBackground = Color(0xFFE6E9EF),
-            onSurface = Color(0xFFE6E9EF),
-            secondary = Color(0xFF047857),
-            error = Color(0xFFDC2626),
-            onPrimary = Color.White,
-            onSecondary = Color.White,
-            onError = Color.White
-        )
-    } else {
-        lightColorScheme(
-            primary = Color(0xFF4F46E5),
-            secondary = Color(0xFF047857),
-            error = Color(0xFFDC2626)
-        )
-    }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+private fun SectionTitle(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        color = color,
+        modifier = modifier.semantics { heading() }
+    )
+}
+
+/** Toggle with Switch role and a spoken state (real DarkMode icons are not in the bundled icon set). */
+@Composable
+private fun TopBarToggle(checked: Boolean, label: String, lang: String, onChange: (Boolean) -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .semantics {
+                contentDescription = label
+                stateDescription = if (checked) t("switch_on", lang) else t("switch_off", lang)
+            },
+        contentAlignment = Alignment.Center
+    ) { content() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -288,6 +360,11 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
         val year = datum.substring(0, 4).toIntOrNull() ?: return from
         val month = datum.substring(5, 7).toIntOrNull() ?: return from
         return repository.switchToMonth(from, year, month)
+    }
+
+    fun openNewEntryDialog() {
+        editingEntryId = null
+        showAddDialog = true
     }
 
     // File work happens off the main thread; failures are reported instead of crashing
@@ -342,10 +419,10 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
                 val result = withContext(Dispatchers.IO) {
                     try {
                         val json = context.contentResolver.openInputStream(uri)?.use { readTextLimited(it, 5_000_000) }
-                        if (json == null) OperationResult(error = "Datei zu groß oder nicht lesbar")
+                        if (json == null) OperationResult(error = t("file_too_big", lang))
                         else repository.restoreState(json)
                     } catch (e: Exception) {
-                        OperationResult(error = e.message ?: "Lesefehler")
+                        OperationResult(error = e.message ?: t("read_error", lang))
                     }
                 }
                 busy = false
@@ -371,35 +448,54 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Remote Work Tracker", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Remote Work Tracker",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White,
-                    actionIconContentColor = Color.White
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 actions = {
                     // Language toggle
-                    IconButton(modifier = Modifier.semantics { contentDescription = t("language", lang) }, onClick = {
-                        val newLang = if (state.language == "de") "en" else "de"
-                        state = state.copy(language = newLang)
-                        repository.saveState(state)
-                    }) {
+                    IconButton(
+                        modifier = Modifier.semantics {
+                            contentDescription = t("language", lang)
+                            stateDescription = if (state.language == "de") "Deutsch" else "English"
+                        },
+                        onClick = {
+                            val newLang = if (state.language == "de") "en" else "de"
+                            state = state.copy(language = newLang)
+                            repository.saveState(state)
+                        }
+                    ) {
                         Text(
                             if (state.language == "de") "EN" else "DE",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                     // Dark mode toggle
-                    IconButton(modifier = Modifier.semantics { contentDescription = t("dark_mode", lang) }, onClick = {
-                        state = state.copy(darkMode = !state.darkMode)
-                        repository.saveState(state)
-                    }) {
+                    TopBarToggle(
+                        checked = state.darkMode,
+                        label = t("dark_mode", lang),
+                        lang = lang,
+                        onChange = {
+                            state = state.copy(darkMode = it)
+                            repository.saveState(state)
+                        }
+                    ) {
                         Text(
-                            if (state.darkMode) "\u2600" else "\u263D",
-                            color = Color.White,
-                            fontSize = 18.sp
+                            if (state.darkMode) "☀" else "☽",
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     }
                     // Settings
@@ -410,34 +506,25 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
             )
         },
         floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // PDF Import FAB
-                FloatingActionButton(
-                    modifier = Modifier.semantics { contentDescription = t("pdf_import", lang) },
-                    onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
-                    containerColor = Color(0xFF7C3AED)
-                ) {
-                    Text("PDF", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                }
-                // Add Entry FAB
-                FloatingActionButton(
-                    modifier = Modifier.semantics { contentDescription = t("add_entry", lang) },
-                    onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Text("+", fontSize = 24.sp, color = Color.White)
-                }
-            }
+            ExtendedFloatingActionButton(
+                onClick = { openNewEntryDialog() },
+                modifier = Modifier.semantics { contentDescription = t("add_entry", lang) },
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text(t("add_entry", lang)) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         }
     ) { padding ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentAlignment = Alignment.TopCenter
+        ) {
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .widthIn(max = MaxContentWidth)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (busy) {
@@ -473,24 +560,23 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
             // Quick Stats
             item {
                 QuickStatsRow(state.currentMonthData, lang)
+                FlexBalanceLine(state.gleitzeitSaldo, lang)
             }
 
             // Current Month Entries
             item {
-                Text(
+                SectionTitle(
                     "${t("entries", lang)} (${state.aktuellerMonat} ${state.aktuellesJahr})",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
 
             if (currentMonthEntries.isEmpty()) {
                 item {
-                    Text(t("no_entries", lang), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    EmptyState(lang, onAdd = { openNewEntryDialog() })
                 }
             } else {
-                items(currentMonthEntries) { entry ->
+                items(currentMonthEntries, key = { it.id }) { entry ->
                     WorkEntryCard(
                         entry = entry,
                         lang = lang,
@@ -508,105 +594,14 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
                 }
             }
 
-            // Export / Import Section
+            // Primary action of the month
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = cardSurface())
+                Button(
+                    onClick = { showCloseConfirm = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = ButtonMinHeight),
+                    enabled = currentMonthEntries.isNotEmpty()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            t("export_import", lang),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // CSV Export
-                            Button(
-                                onClick = {
-                                    val snapshot = state
-                                    shareFile(
-                                        buildFile = {
-                                            val monthNum = MonthNames.getMonthNumber(snapshot.aktuellerMonat)
-                                            val csv = repository.generateCsv(snapshot, snapshot.aktuellesJahr, monthNum)
-                                            newExportFile(context, "Export_${snapshot.aktuellerMonat}_${snapshot.aktuellesJahr}.csv")
-                                                .also { it.writeText(csv) }
-                                        },
-                                        mime = "text/csv",
-                                        chooserTitle = t("csv_export", lang)
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF047857))
-                            ) {
-                                Text("CSV", fontSize = 11.sp)
-                            }
-
-                            // PDF Report
-                            Button(
-                                onClick = {
-                                    val snapshot = state
-                                    shareFile(
-                                        buildFile = {
-                                            val monthNum = MonthNames.getMonthNumber(snapshot.aktuellerMonat)
-                                            val entries = repository.getEntriesForMonth(snapshot, snapshot.aktuellesJahr, monthNum)
-                                            ReportGenerator.generateMonthlyPdf(context, snapshot.currentMonthData, entries)
-                                        },
-                                        mime = "application/pdf",
-                                        chooserTitle = t("pdf_report", lang)
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
-                            ) {
-                                Text("PDF", fontSize = 11.sp)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Backup
-                            Button(
-                                onClick = {
-                                    val snapshot = state
-                                    shareFile(
-                                        buildFile = {
-                                            newExportFile(context, "Backup_${snapshot.aktuellerMonat}_${snapshot.aktuellesJahr}.json")
-                                                .also { it.writeText(repository.serializeState(snapshot)) }
-                                        },
-                                        mime = "application/json",
-                                        chooserTitle = t("backup", lang),
-                                        successMessage = t("backup_success", lang)
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
-                            ) {
-                                Text(t("backup", lang), fontSize = 12.sp, maxLines = 1)
-                            }
-
-                            // Restore
-                            Button(
-                                onClick = {
-                                    restoreLauncher.launch(arrayOf("application/json"))
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB45309))
-                            ) {
-                                Text(t("restore", lang), fontSize = 12.sp, maxLines = 1)
-                            }
-                        }
-                    }
+                    Text(t("close_month", lang))
                 }
             }
 
@@ -614,17 +609,16 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
             if (state.monatlicheHistorie.isNotEmpty()) {
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            t("history", lang),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Button(onClick = { showFinalReport = true }) {
-                            Text(t("final_report", lang), fontSize = 12.sp, maxLines = 1)
+                        SectionTitle(t("history", lang), modifier = Modifier.weight(1f))
+                        OutlinedButton(
+                            onClick = { showFinalReport = true },
+                            modifier = Modifier.heightIn(min = ButtonMinHeight)
+                        ) {
+                            Text(t("final_report", lang), maxLines = 1)
                         }
                     }
                 }
@@ -633,33 +627,84 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
                 }
             }
 
-            // Actions
+            // Export / Import Section (secondary, at the bottom)
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { showCloseConfirm = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB45309)),
-                        modifier = Modifier.weight(1f),
-                        enabled = currentMonthEntries.isNotEmpty()
-                    ) {
-                        Text(t("close_month", lang), fontSize = 12.sp)
-                    }
+                ExportImportCard(
+                    lang = lang,
+                    onCsv = {
+                        val snapshot = state
+                        shareFile(
+                            buildFile = {
+                                val monthNum = MonthNames.getMonthNumber(snapshot.aktuellerMonat)
+                                val csv = repository.generateCsv(snapshot, snapshot.aktuellesJahr, monthNum)
+                                newExportFile(context, "Export_${snapshot.aktuellerMonat}_${snapshot.aktuellesJahr}.csv")
+                                    .also { it.writeText(csv) }
+                            },
+                            mime = "text/csv",
+                            chooserTitle = t("csv_export", lang)
+                        )
+                    },
+                    onPdfReport = {
+                        val snapshot = state
+                        shareFile(
+                            buildFile = {
+                                val monthNum = MonthNames.getMonthNumber(snapshot.aktuellerMonat)
+                                val entries = repository.getEntriesForMonth(snapshot, snapshot.aktuellesJahr, monthNum)
+                                ReportGenerator.generateMonthlyPdf(context, snapshot.currentMonthData, entries)
+                            },
+                            mime = "application/pdf",
+                            chooserTitle = t("pdf_report", lang)
+                        )
+                    },
+                    onBackup = {
+                        val snapshot = state
+                        shareFile(
+                            buildFile = {
+                                newExportFile(context, "Backup_${snapshot.aktuellerMonat}_${snapshot.aktuellesJahr}.json")
+                                    .also { it.writeText(repository.serializeState(snapshot)) }
+                            },
+                            mime = "application/json",
+                            chooserTitle = t("backup", lang),
+                            successMessage = t("backup_success", lang)
+                        )
+                    },
+                    onRestore = { restoreLauncher.launch(arrayOf("application/json")) },
+                    onPdfImport = { pdfLauncher.launch(arrayOf("application/pdf")) }
+                )
+            }
 
-                    Button(
-                        onClick = { showClearConfirm = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(t("clear_all", lang), fontSize = 12.sp)
+            // Danger zone
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = appCardColors(container = MaterialTheme.colorScheme.background),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            t("danger_zone", lang),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.semantics { heading() }
+                        )
+                        Button(
+                            onClick = { showClearConfirm = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            ),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = ButtonMinHeight)
+                        ) {
+                            Text(t("clear_all", lang))
+                        }
                     }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(160.dp)) }
+            // room for the extended FAB
+            item { Spacer(modifier = Modifier.height(88.dp)) }
+        }
         }
     }
 
@@ -676,10 +721,16 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
                         repository.saveState(state)
                         message = t("entry_deleted", lang)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    modifier = Modifier.heightIn(min = ButtonMinHeight)
                 ) { Text(t("delete", lang)) }
             },
-            dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text(t("cancel", lang)) } }
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteId = null }, modifier = Modifier.heightIn(min = ButtonMinHeight)) { Text(t("cancel", lang)) }
+            }
         )
     }
 
@@ -693,16 +744,25 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
             title = { Text(t("close_month", lang)) },
             text = { Text("${t("confirm_close", lang)} (${state.aktuellerMonat} ${state.aktuellesJahr})") },
             confirmButton = {
-                Button(onClick = {
-                    showCloseConfirm = false
-                    val closedName = state.aktuellerMonat
-                    val (newState, quarterMsg) = repository.closeSpecificMonth(state, state.aktuellesJahr, currentMonthNum)
-                    state = newState
-                    repository.saveState(state)
-                    message = "$closedName ${t("month_closed", lang)}" + (quarterMsg?.let { "\n$it" } ?: "")
-                }) { Text(t("confirm_yes", lang)) }
+                Button(
+                    onClick = {
+                        showCloseConfirm = false
+                        val closedName = state.aktuellerMonat
+                        if (!repository.monthHasEntries(state, state.aktuellesJahr, currentMonthNum)) {
+                            message = "$closedName ${t("month_empty", lang)}"
+                        } else {
+                            val (newState, quarterMsg) = repository.closeSpecificMonth(state, state.aktuellesJahr, currentMonthNum)
+                            state = newState
+                            repository.saveState(state)
+                            message = "$closedName ${t("month_closed", lang)}" + (quarterMsg?.let { "\n$it" } ?: "")
+                        }
+                    },
+                    modifier = Modifier.heightIn(min = ButtonMinHeight)
+                ) { Text(t("confirm_yes", lang)) }
             },
-            dismissButton = { TextButton(onClick = { showCloseConfirm = false }) { Text(t("cancel", lang)) } }
+            dismissButton = {
+                TextButton(onClick = { showCloseConfirm = false }, modifier = Modifier.heightIn(min = ButtonMinHeight)) { Text(t("cancel", lang)) }
+            }
         )
     }
 
@@ -712,14 +772,19 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
             title = { Text(t("restore", lang)) },
             text = { Text(t("restore_confirm", lang)) },
             confirmButton = {
-                Button(onClick = {
-                    pendingRestore = null
-                    state = restored
-                    repository.saveState(state)
-                    message = t("restore_success", lang)
-                }) { Text(t("confirm_yes", lang)) }
+                Button(
+                    onClick = {
+                        pendingRestore = null
+                        state = restored
+                        repository.saveState(state)
+                        message = t("restore_success", lang)
+                    },
+                    modifier = Modifier.heightIn(min = ButtonMinHeight)
+                ) { Text(t("confirm_yes", lang)) }
             },
-            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text(t("cancel", lang)) } }
+            dismissButton = {
+                TextButton(onClick = { pendingRestore = null }, modifier = Modifier.heightIn(min = ButtonMinHeight)) { Text(t("cancel", lang)) }
+            }
         )
     }
 
@@ -736,11 +801,15 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
                         repository.saveState(state)
                         message = t("all_deleted", lang)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    modifier = Modifier.heightIn(min = ButtonMinHeight)
                 ) { Text(t("delete", lang)) }
             },
             dismissButton = {
-                TextButton(onClick = { showClearConfirm = false }) { Text(t("cancel", lang)) }
+                TextButton(onClick = { showClearConfirm = false }, modifier = Modifier.heightIn(min = ButtonMinHeight)) { Text(t("cancel", lang)) }
             }
         )
     }
@@ -839,6 +908,7 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
                 // Show the month of the statement that was just loaded, even if every entry in it
                 // was already there (otherwise the screen would keep showing the old month).
                 (latestImported ?: entries.maxOfOrNull { it.datum })?.let { state = switchToMonthOf(it, state) }
+                state = repository.withFlexBalance(state, parseResult.flexBalance)
                 repository.saveState(state)
                 message = "$importedCount ${t("entries_imported", lang)} ($remoteCount ${t("remote_count", lang)})" +
                         if (errors.isNotEmpty()) {
@@ -849,6 +919,71 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
                 pdfParseResult = null
             }
         )
+    }
+}
+
+@Composable
+private fun EmptyState(lang: String, onAdd: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(t("no_entries", lang), style = MaterialTheme.typography.titleMedium)
+        Text(
+            t("empty_hint", lang),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(onClick = onAdd, modifier = Modifier.heightIn(min = ButtonMinHeight)) {
+            Text(t("first_entry", lang))
+        }
+    }
+}
+
+@Composable
+private fun ExportImportCard(
+    lang: String,
+    onCsv: () -> Unit,
+    onPdfReport: () -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit,
+    onPdfImport: () -> Unit
+) {
+    val stacked = largeFont()
+    @Composable
+    fun Btn(label: String, onClick: () -> Unit, modifier: Modifier) {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier.heightIn(min = ButtonMinHeight),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+        ) { Text(label) }
+    }
+    Card(modifier = Modifier.fillMaxWidth(), colors = appCardColors()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                t("export_import", lang),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics { heading() }
+            )
+            if (stacked) {
+                Btn(t("csv_export", lang), onCsv, Modifier.fillMaxWidth())
+                Btn(t("pdf_report", lang), onPdfReport, Modifier.fillMaxWidth())
+                Btn(t("backup", lang), onBackup, Modifier.fillMaxWidth())
+                Btn(t("restore", lang), onRestore, Modifier.fillMaxWidth())
+                Btn(t("pdf_import", lang), onPdfImport, Modifier.fillMaxWidth())
+            } else {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Btn(t("csv_export", lang), onCsv, Modifier.weight(1f).fillMaxHeight())
+                    Btn(t("pdf_report", lang), onPdfReport, Modifier.weight(1f).fillMaxHeight())
+                }
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Btn(t("backup", lang), onBackup, Modifier.weight(1f).fillMaxHeight())
+                    Btn(t("restore", lang), onRestore, Modifier.weight(1f).fillMaxHeight())
+                }
+                Btn(t("pdf_import", lang), onPdfImport, Modifier.fillMaxWidth())
+            }
+        }
     }
 }
 
@@ -873,17 +1008,16 @@ fun SettingsBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                t("settings", lang),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
+            SectionTitle(t("settings", lang))
 
             // Remote Quote Slider
-            Text("${t("remote_quote", lang)}: ${quoteValue.toInt()}%")
+            Text("${t("remote_quote", lang)}: ${quoteValue.toInt()}%", style = MaterialTheme.typography.bodyLarge)
             Slider(
                 value = quoteValue,
                 onValueChange = { quoteValue = it },
@@ -915,12 +1049,12 @@ fun SettingsBottomSheet(
                         error = onSave(quoteValue.toDouble(), parsed)
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().heightIn(min = ButtonMinHeight)
             ) {
                 Text(t("save", lang))
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -939,6 +1073,7 @@ fun PdfImportDialog(
             Column {
                 Text(
                     "${result.entries.size} ${t("entries_found", lang)}",
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -947,26 +1082,26 @@ fun PdfImportDialog(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(result.entries) { entry ->
+                        val container = if (entry.isRemote) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        val content = if (entry.isRemote) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                         Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (entry.isRemote) cardSurface(0xFF312E81, 0xFFE0E7FF) else cardSurface()
-                            ),
+                            colors = appCardColors(container, content),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(8.dp),
+                                modifier = Modifier.padding(8.dp).semantics(mergeDescendants = true) {},
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    "${entry.datum}: ${entry.startTime} - ${entry.endTime}",
-                                    fontSize = 14.sp
+                                    "${fmtDate(entry.datum, lang)}: ${entry.startTime} - ${entry.endTime}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f)
                                 )
                                 if (entry.isRemote) {
                                     Text(
                                         t("remote_count", lang),
-                                        fontSize = 12.sp,
-                                        color = cardSurface(0xFFA5B4FC, 0xFF4F46E5),
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -977,12 +1112,12 @@ fun PdfImportDialog(
                 if (result.errors.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "${t("notes", lang)}",
+                        t("notes", lang),
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFB45309)
+                        color = MaterialTheme.status.warning
                     )
                     result.errors.forEach { error ->
-                        Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -990,13 +1125,14 @@ fun PdfImportDialog(
         confirmButton = {
             Button(
                 onClick = { onImport(result.entries) },
-                enabled = result.entries.isNotEmpty()
+                enabled = result.entries.isNotEmpty(),
+                modifier = Modifier.heightIn(min = ButtonMinHeight)
             ) {
                 Text(t("import_all", lang))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = ButtonMinHeight)) {
                 Text(t("cancel", lang))
             }
         }
@@ -1007,18 +1143,17 @@ fun PdfImportDialog(
 fun MonthOverviewCard(data: MonthData, month: String, year: Int, quartal: String, lang: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = cardSurface(0xFF312E81, 0xFFE0E7FF))
+        colors = appCardColors(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp).semantics(mergeDescendants = true) {}) {
             Text(
                 "$month $year",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = cardSurface(0xFFA5B4FC, 0xFF4F46E5)
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
             )
             Text(
-                "$quartal | ${t("quote_label", lang)}: ${String.format(Locale.US, "%.1f", data.individuelleQuote)}%",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "$quartal | ${t("quote_label", lang)}: ${fmtL(data.individuelleQuote, 1, lang)}%",
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
@@ -1032,23 +1167,36 @@ fun RemoteProgressCard(data: MonthData, lang: String) {
 
     val rawRemaining = data.maxRemoteStunden - data.istRemoteStundenLaufend
     val remaining = rawRemaining.coerceAtLeast(0.0)
-    val progressColor = when (remainingLevel(rawRemaining)) {
-        RemainingLevel.OVER_QUOTA -> Color(0xFFDC2626)
-        RemainingLevel.LOW -> Color(0xFFB45309)
-        RemainingLevel.OK -> Color(0xFF047857)
+    val status = MaterialTheme.status
+    val scheme = MaterialTheme.colorScheme
+    val (progressColor, onProgressColor) = when (remainingLevel(rawRemaining)) {
+        RemainingLevel.OVER_QUOTA -> scheme.error to scheme.onError
+        RemainingLevel.LOW -> status.warning to status.onWarning
+        RemainingLevel.OK -> status.success to status.onSuccess
     }
+    val used = fmtL(data.istRemoteStundenLaufend, 2, lang)
+    val max = fmtL(data.maxRemoteStunden, 2, lang)
+    val percent = if (data.maxRemoteStunden > 0) Math.round(data.istRemoteStundenLaufend / data.maxRemoteStunden * 100).toInt() else 0
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = appCardColors()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(t("remote_hours", lang), fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                t("remote_hours", lang),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics { heading() }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
 
             LinearProgressIndicator(
                 progress = progress,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(24.dp),
-                color = progressColor
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .semantics { contentDescription = t("progress_desc", lang).format(used, max) },
+                color = progressColor,
+                trackColor = MaterialTheme.colorScheme.outlineVariant
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -1057,22 +1205,28 @@ fun RemoteProgressCard(data: MonthData, lang: String) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("${String.format(Locale.US, "%.2f", data.istRemoteStundenLaufend)}h")
-                Text("${String.format(Locale.US, "%.2f", data.maxRemoteStunden)}h")
+                Text("${used}h", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    t("used_percent", lang).format("$percent"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text("${max}h", style = MaterialTheme.typography.bodyMedium)
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Card(
-                colors = CardDefaults.cardColors(containerColor = progressColor),
+            Surface(
+                color = progressColor,
+                contentColor = onProgressColor,
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    "${t("remaining", lang)}: ${String.format(Locale.US, "%.2f", remaining)}h",
+                    "${t("remaining", lang)}: ${fmtL(remaining, 2, lang)}h",
                     modifier = Modifier.padding(12.dp),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -1081,60 +1235,104 @@ fun RemoteProgressCard(data: MonthData, lang: String) {
 
 @Composable
 fun QuickStatsRow(data: MonthData, lang: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        StatCard(t("soll", lang), "${String.format(Locale.US, "%.1f", data.sollStundenGesamt)}h", Modifier.weight(1f))
-        StatCard(t("max_remote", lang), "${String.format(Locale.US, "%.1f", data.maxRemoteStunden)}h", Modifier.weight(1f))
-        StatCard(t("ist_remote", lang), "${String.format(Locale.US, "%.1f", data.istRemoteStundenLaufend)}h", Modifier.weight(1f))
+    val items = listOf(
+        t("soll", lang) to "${fmtL(data.sollStundenGesamt, 1, lang)}h",
+        t("max_remote", lang) to "${fmtL(data.maxRemoteStunden, 1, lang)}h",
+        t("ist_remote", lang) to "${fmtL(data.istRemoteStundenLaufend, 1, lang)}h"
+    )
+    if (largeFont()) {
+        // large text: the three cards go below each other (label left, value right)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { (label, value) -> StatCard(label, value, Modifier.fillMaxWidth(), horizontal = true) }
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items.forEach { (label, value) -> StatCard(label, value, Modifier.weight(1f).fillMaxHeight()) }
+        }
     }
 }
 
+/** Flextime balance of the last imported statement: current period and total, e.g. "+2.5h / Σ 12.0h". */
 @Composable
-fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = cardSurface())
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, fontWeight = FontWeight.Bold)
+fun FlexBalanceLine(balance: FlexBalance?, lang: String) {
+    if (balance == null) return
+    fun fmt(v: Double) = (if (v > 0) "+" else "") + fmtL(v, 2, lang) + "h"
+    val parts = listOfNotNull(balance.current?.let { fmt(it) }, balance.total?.let { "Σ " + fmt(it) })
+    if (parts.isEmpty()) return
+    Text(
+        "${t("flex_balance", lang)}: ${parts.joinToString("  ")}",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.padding(top = 8.dp)
+    )
+}
+
+@Composable
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier, horizontal: Boolean = false) {
+    Card(modifier = modifier, colors = appCardColors()) {
+        if (horizontal) {
+            Row(
+                modifier = Modifier.padding(12.dp).fillMaxWidth().semantics(mergeDescendants = true) {},
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            Column(
+                modifier = Modifier.padding(12.dp).fillMaxWidth().semantics(mergeDescendants = true) {},
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
 
 @Composable
 fun WorkEntryCard(entry: WorkEntry, lang: String, onDelete: () -> Unit, onEdit: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = appCardColors()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(entry.datum, fontWeight = FontWeight.Bold)
-                Text("${entry.startTime} - ${entry.endTime}")
+            Column(modifier = Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
+                Text(fmtDate(entry.datum, lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("${entry.startTime} - ${entry.endTime}", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "${t("remote_count", lang)}: ${String.format(Locale.US, "%.2f", entry.remoteStundenHeute)}h | ${t("net_hours", lang)}: ${String.format(Locale.US, "%.2f", entry.totalStundenHeute)}h",
-                    fontSize = 12.sp,
+                    "${t("remote_count", lang)}: ${fmtL(entry.remoteStundenHeute, 2, lang)}h | ${t("net_hours", lang)}: ${fmtL(entry.totalStundenHeute, 2, lang)}h",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 entry.pauseWarning?.takeIf { entry.source != SOURCE_PDF_IMPORT }?.let {
-                    Text(it, fontSize = 12.sp, color = Color(0xFFDC2626))
+                    Text(
+                        localizePauseWarning(it, lang),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = t("edit_entry", lang), tint = Color(0xFF2563EB))
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = t("edit_entry_for", lang).format(entry.datum),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = t("delete", lang), tint = Color(0xFFDC2626))
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = t("delete_entry_for", lang).format(entry.datum),
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
@@ -1143,28 +1341,31 @@ fun WorkEntryCard(entry: WorkEntry, lang: String, onDelete: () -> Unit, onEdit: 
 
 @Composable
 fun HistoryCard(month: MonthData, lang: String) {
-    // Remote limit exceeded -> red background (same rule on every platform, see FinalReport)
+    // Remote limit exceeded -> error container (same rule on every platform, see FinalReport)
     val over = FinalReport.isOverQuota(month)
+    val scheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (over) cardSurface(0xFF4A1D1D, 0xFFFEE2E2) else cardSurface(0xFF303A4B, 0xFFF9FAFB)
-        )
+        colors = if (over) appCardColors(scheme.errorContainer, scheme.onErrorContainer) else appCardColors()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp).semantics(mergeDescendants = true) {}) {
             Text(
                 "${month.monat} ${month.jahr}",
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "${t("remote_count", lang)}: ${String.format(Locale.US, "%.2f", month.istRemoteStundenLaufend)}h / ${String.format(Locale.US, "%.2f", month.maxRemoteStunden)}h",
-                fontSize = 14.sp
+                "${t("remote_count", lang)}: ${fmtL(month.istRemoteStundenLaufend, 2, lang)}h / ${fmtL(month.maxRemoteStunden, 2, lang)}h",
+                style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                "${t("quote_label", lang)}: ${String.format(Locale.US, "%.1f", month.tatsaechlicheRemoteQuote)}%",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "${t("quote_label", lang)}: ${fmtL(month.tatsaechlicheRemoteQuote, 1, lang)}%",
+                style = MaterialTheme.typography.bodyMedium
             )
+            if (over) {
+                // not by colour alone
+                Text(t("rating_exceeded", lang), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -1188,43 +1389,69 @@ fun AddEntryDialog(
     var end by rememberSaveable { mutableStateOf(initialEnd ?: "16:30") }
     var pause by rememberSaveable { mutableStateOf(initialPause ?: "30") }
     var remote by rememberSaveable { mutableStateOf(initialRemote ?: "") }
+    var datumInvalid by rememberSaveable { mutableStateOf(false) }
+    var startInvalid by rememberSaveable { mutableStateOf(false) }
+    var endInvalid by rememberSaveable { mutableStateOf(false) }
     var pauseInvalid by rememberSaveable { mutableStateOf(false) }
     var remoteInvalid by rememberSaveable { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    val scroll = rememberScrollState()
+    // a rejected entry shows its message at the top of the form: make sure it is in view
+    LaunchedEffect(error) { if (error != null) scroll.animateScrollTo(0) }
+
+    val next = KeyboardOptions(imeAction = ImeAction.Next)
+    val nextDecimal = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isEditing) t("edit_entry", lang) else t("record_time", lang)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(scroll).imePadding(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
                 OutlinedTextField(
                     value = datum,
-                    onValueChange = { datum = it; error = null },
+                    onValueChange = { datum = it; datumInvalid = false; error = null },
                     label = { Text(t("date_label", lang)) },
+                    isError = datumInvalid,
+                    supportingText = if (datumInvalid) ({ Text(t("invalid_date", lang)) }) else null,
+                    keyboardOptions = next,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = start,
-                    onValueChange = { start = it; error = null },
-                    label = { Text(t("start_label", lang)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = end,
-                    onValueChange = { end = it; error = null },
-                    label = { Text(t("end_label", lang)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = start,
+                        onValueChange = { start = it; startInvalid = false; error = null },
+                        label = { Text(t("start_label", lang), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        isError = startInvalid,
+                        supportingText = if (startInvalid) ({ Text(t("invalid_time", lang)) }) else null,
+                        keyboardOptions = next,
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = end,
+                        onValueChange = { end = it; endInvalid = false; error = null },
+                        label = { Text(t("end_label", lang), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        isError = endInvalid,
+                        supportingText = if (endInvalid) ({ Text(t("invalid_time", lang)) }) else null,
+                        keyboardOptions = next,
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 OutlinedTextField(
                     value = pause,
                     onValueChange = { pause = it; pauseInvalid = false; error = null },
                     label = { Text(t("pause_label", lang)) },
                     isError = pauseInvalid,
                     supportingText = if (pauseInvalid) ({ Text(t("invalid_number", lang)) }) else null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = nextDecimal,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1234,38 +1461,41 @@ fun AddEntryDialog(
                     label = { Text(t("remote_label", lang)) },
                     isError = remoteInvalid,
                     supportingText = if (remoteInvalid) ({ Text(t("invalid_number", lang)) }) else null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                error?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                // blank pause = 30 min, blank remote = whole day; anything else must be a valid number
-                val pauseMinutes = if (pause.isBlank()) 30.0 else parseDecimalOrNull(pause)
-                val remoteHours = if (remote.isBlank()) null else parseDecimalOrNull(remote)
-                pauseInvalid = pauseMinutes == null
-                remoteInvalid = remote.isNotBlank() && remoteHours == null
-                if (pauseMinutes != null && !remoteInvalid) {
-                    error = onAdd(datum.trim(), start.trim(), end.trim(), pauseMinutes, remoteHours)
-                }
-            }) {
+            Button(
+                onClick = {
+                    // field-wise validation; blank pause = 30 min, blank remote = whole day
+                    val pauseMinutes = if (pause.isBlank()) 30.0 else parseDecimalOrNull(pause)
+                    val remoteHours = if (remote.isBlank()) null else parseDecimalOrNull(remote)
+                    datumInvalid = !isValidIsoDate(datum)
+                    startInvalid = !isValidTime(start)
+                    endInvalid = !isValidTime(end)
+                    pauseInvalid = pauseMinutes == null
+                    remoteInvalid = remote.isNotBlank() && remoteHours == null
+                    if (!datumInvalid && !startInvalid && !endInvalid && pauseMinutes != null && !remoteInvalid) {
+                        error = onAdd(datum.trim(), start.trim(), end.trim(), pauseMinutes, remoteHours)
+                    }
+                },
+                modifier = Modifier.heightIn(min = ButtonMinHeight)
+            ) {
                 Text(t("save", lang))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = ButtonMinHeight)) {
                 Text(t("cancel", lang))
             }
         }
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MonthSelectorRow(
     months: List<Pair<Int, Int>>,
@@ -1274,20 +1504,18 @@ fun MonthSelectorRow(
     onMonthSelected: (Int, Int) -> Unit,
     lang: String
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = cardSurface())
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = appCardColors()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 t("available_months", lang),
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp).semantics { heading() }
             )
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 months.forEach { (year, monthNum) ->
                     val isSelected = year == currentYear && monthNum == currentMonthNum
@@ -1297,15 +1525,11 @@ fun MonthSelectorRow(
                     FilterChip(
                         selected = isSelected,
                         onClick = { onMonthSelected(year, monthNum) },
-                        label = {
-                            Text(
-                                "$shortName $year",
-                                fontSize = 11.sp
-                            )
-                        },
+                        modifier = Modifier.heightIn(min = ButtonMinHeight),
+                        label = { Text("$shortName $year", style = MaterialTheme.typography.labelLarge) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF4F46E5),
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         )
                     )
                 }
@@ -1314,13 +1538,16 @@ fun MonthSelectorRow(
     }
 }
 
-
 @Composable
-private fun ratingColors(rating: FinalReport.Rating?): Pair<Color, Color> = when (rating) {
-    FinalReport.Rating.GOOD -> cardSurface(0xFF14391F, 0xFFDCFCE7) to cardSurface(0xFF86EFAC, 0xFF166534)
-    FinalReport.Rating.TIGHT -> cardSurface(0xFF3D3410, 0xFFFEF9C3) to cardSurface(0xFFFDE68A, 0xFF854D0E)
-    FinalReport.Rating.EXCEEDED -> cardSurface(0xFF4A1D1D, 0xFFFEE2E2) to cardSurface(0xFFFCA5A5, 0xFF991B1B)
-    null -> cardSurface() to MaterialTheme.colorScheme.onSurface
+private fun ratingColors(rating: FinalReport.Rating?): Pair<Color, Color> {
+    val s = MaterialTheme.status
+    val scheme = MaterialTheme.colorScheme
+    return when (rating) {
+        FinalReport.Rating.GOOD -> s.successContainer to s.onSuccessContainer
+        FinalReport.Rating.TIGHT -> s.warningContainer to s.onWarningContainer
+        FinalReport.Rating.EXCEEDED -> scheme.errorContainer to scheme.onErrorContainer
+        null -> scheme.surfaceVariant to scheme.onSurface
+    }
 }
 
 internal fun ratingText(rating: FinalReport.Rating?, lang: String): String = when (rating) {
@@ -1330,11 +1557,23 @@ internal fun ratingText(rating: FinalReport.Rating?, lang: String): String = whe
     null -> ""
 }
 
-private fun h(v: Double) = String.format(Locale.US, "%.2f", v)
+/** One report line: label on the left, value on the right (tabular figures come from the theme). */
+@Composable
+private fun ReportRow(label: String, value: String, modifier: Modifier = Modifier, bold: Boolean = false) {
+    Row(
+        modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = if (bold) FontWeight.Bold else null, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = if (bold) FontWeight.Bold else null, textAlign = TextAlign.End)
+    }
+}
 
 /** Quarterly final report: quarters in order, each with its months and a rating. */
 @Composable
 fun FinalReportDialog(report: FinalReport.Report, lang: String, onDismiss: () -> Unit) {
+    fun h(v: Double) = fmtL(v, 2, lang) + "h"
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(t("final_report", lang)) },
@@ -1348,53 +1587,63 @@ fun FinalReportDialog(report: FinalReport.Report, lang: String, onDismiss: () ->
                 } else {
                     val o = report.overall
                     val (oBg, oFg) = ratingColors(o.rating)
-                    Card(colors = CardDefaults.cardColors(containerColor = oBg), modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("${t("report_overall", lang)}: ${ratingText(o.rating, lang)}", fontWeight = FontWeight.Bold, color = oFg)
+                    Card(colors = appCardColors(oBg, oFg), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                "${o.months} ${t("report_months", lang)}, ${o.quarters} Q | Remote ${h(o.remote)}h / ${t("report_limit", lang)} ${h(o.maxRemote)}h | " +
-                                    "${t("report_quota", lang)} ${h(o.actualQuote)}% | ${o.monthsOver} ${t("report_months_over", lang)}",
-                                fontSize = 12.sp, color = oFg
+                                "${t("report_overall", lang)}: ${ratingText(o.rating, lang)}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
                             )
+                            ReportRow("${monthsText(o.months, lang)}, ${quartersText(o.quarters, lang)}", "")
+                            ReportRow(t("report_remote", lang), "${h(o.remote)} / ${t("report_limit", lang)} ${h(o.maxRemote)}")
+                            ReportRow(t("report_quota", lang), "${fmtL(o.actualQuote, 2, lang)}%")
+                            Text(monthsOverText(o.monthsOver, lang), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                     for (q in report.quarters) {
                         val (bg, fg) = ratingColors(q.rating)
-                        Card(colors = CardDefaults.cardColors(containerColor = cardSurface()), modifier = Modifier.fillMaxWidth()) {
+                        Card(colors = appCardColors(), modifier = Modifier.fillMaxWidth()) {
                             Column {
-                                Column(Modifier.fillMaxWidth().background(bg).padding(10.dp)) {
+                                Column(Modifier.fillMaxWidth().background(bg).padding(10.dp).semantics(mergeDescendants = true) {}) {
                                     Text(
                                         q.quartal + if (q.complete) "" else " (${t("report_quarter_incomplete", lang)}: ${q.monthCount}/3)",
-                                        fontWeight = FontWeight.Bold, color = fg
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold, color = fg,
+                                        modifier = Modifier.semantics { heading() }
                                     )
-                                    Text(ratingText(q.rating, lang), fontSize = 12.sp, color = fg)
+                                    Text(ratingText(q.rating, lang), style = MaterialTheme.typography.bodySmall, color = fg)
                                 }
-                                Column(Modifier.padding(10.dp)) {
-                                    Text(
-                                        "Remote ${h(q.remote)}h / ${t("report_limit", lang)} ${h(q.maxRemote)}h (${Math.round(q.usage * 100)} %) | " +
-                                            "${t("report_quota", lang)} ${h(q.actualQuote)}% | ${q.monthsOver} ${t("report_months_over", lang)}",
-                                        fontSize = 12.sp
+                                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    ReportRow(
+                                        t("report_remote", lang),
+                                        "${h(q.remote)} / ${t("report_limit", lang)} ${h(q.maxRemote)} (${Math.round(q.usage * 100)} %)"
                                     )
+                                    ReportRow(t("report_quota", lang), "${fmtL(q.actualQuote, 2, lang)}%")
+                                    Text(monthsOverText(q.monthsOver, lang), style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(Modifier.height(4.dp))
                                     for (m in q.months) {
-                                        val red = cardSurface(0xFF4A1D1D, 0xFFFEE2E2)
-                                        Row(
-                                            Modifier.fillMaxWidth().padding(top = 4.dp)
-                                                .background(if (m.over) red else Color.Transparent)
-                                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text("${m.monat} ${m.jahr}", fontSize = 12.sp)
-                                            Text("${h(m.remote)}h / ${h(m.maxRemote)}h | ${h(m.actualQuote)}%", fontSize = 12.sp)
+                                        val rowBg = if (m.over) MaterialTheme.colorScheme.errorContainer else Color.Transparent
+                                        val rowFg = if (m.over) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
+                                        CompositionLocalProvider(LocalContentColor provides rowFg) {
+                                            ReportRow(
+                                                "${m.monat} ${m.jahr}",
+                                                "${h(m.remote)} / ${h(m.maxRemote)} | ${fmtL(m.actualQuote, 2, lang)}%",
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(rowBg)
+                                                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                                                bold = m.over
+                                            )
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                    Text(t("report_rule", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(t("report_rule", lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(t("close", lang)) } }
+        confirmButton = { TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = ButtonMinHeight)) { Text(t("close", lang)) } }
     )
 }

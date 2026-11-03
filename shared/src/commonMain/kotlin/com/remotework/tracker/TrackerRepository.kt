@@ -19,13 +19,33 @@ class TrackerRepository(private val storage: LocalStorage) {
         val stored = storage.load(stateKey)
         return if (stored != null) {
             try {
-                json.decodeFromString<TrackerState>(stored)
+                refreshCurrentTarget(json.decodeFromString<TrackerState>(stored))
             } catch (e: Exception) {
                 createDefaultState()
             }
         } else {
             createDefaultState()
         }
+    }
+
+    /**
+     * The target hours of the viewed month are derived values. A state saved by an older version (before the
+     * special days 24/31 Dec, or with another holiday table) would keep showing the old figures, so they are
+     * recalculated on every load. Closed months in the history are NOT touched: they are a snapshot of what
+     * applied when they were closed (target hours per day or quota may have been different then).
+     */
+    internal fun refreshCurrentTarget(state: TrackerState): TrackerState {
+        val m = state.currentMonthData
+        if (m.monat !in MonthNames.german) return state
+        val soll = TrackerCalculations.calculateSollStundenMonth(m.jahr, MonthNames.getMonthNumber(m.monat), state.sollStundenProTag)
+        val maxRemote = soll * (state.individuelleQuoteProzent / 100.0)
+        val quote = if (soll > 0) m.istRemoteStundenLaufend / soll * 100 else 0.0
+        if (m.sollStundenGesamt == soll && m.maxRemoteStunden == maxRemote &&
+            m.individuelleQuote == state.individuelleQuoteProzent && m.tatsaechlicheRemoteQuote == quote) return state
+        return state.copy(currentMonthData = m.copy(
+            sollStundenGesamt = soll, maxRemoteStunden = maxRemote,
+            individuelleQuote = state.individuelleQuoteProzent, tatsaechlicheRemoteQuote = quote
+        ))
     }
 
     fun saveState(state: TrackerState) {
@@ -86,8 +106,20 @@ class TrackerRepository(private val storage: LocalStorage) {
     ): OperationResult = addEntry(state, datum, startTime, endTime, pauseMinutes, remoteHours, null)
 
     /**
+     * Stores the flextime balance read from a statement. Figures that are not plausible (NaN, absurdly large)
+     * are dropped; without any usable figure the state stays unchanged.
+     */
+    fun withFlexBalance(state: TrackerState, balance: FlexBalance?): TrackerState {
+        if (balance == null) return state
+        fun ok(v: Double?) = v?.takeIf { it.isFinite() && kotlin.math.abs(it) < 10000.0 }
+        val clean = balance.copy(previous = ok(balance.previous), current = ok(balance.current), total = ok(balance.total))
+        if (clean.previous == null && clean.current == null && clean.total == null) return state
+        return state.copy(gleitzeitSaldo = clean)
+    }
+
+    /**
      * Same as [addWorkEntry] for entries read from a statement: marked as imported and without a
-     * break warning (a statement lists sessions, not breaks, so the pause is 0).
+     * break warning (the pause is the break the time system deducted).
      */
     fun importWorkEntry(
         state: TrackerState,
@@ -96,7 +128,18 @@ class TrackerRepository(private val storage: LocalStorage) {
         endTime: String,
         pauseMinutes: Double,
         remoteHours: Double?
-    ): OperationResult = addEntry(state, datum, startTime, endTime, pauseMinutes, remoteHours, SOURCE_PDF_IMPORT)
+    ): OperationResult {
+        // Loading the same statement again corrects the earlier import in place (same day, start and end)
+        val same = state.dailyRecords[datum]?.firstOrNull {
+            it.source == SOURCE_PDF_IMPORT && it.startTime == startTime && it.endTime == endTime
+        }
+        if (same == null) return addEntry(state, datum, startTime, endTime, pauseMinutes, remoteHours, SOURCE_PDF_IMPORT)
+        val without = state.copy(
+            dailyRecords = state.dailyRecords + (datum to (state.dailyRecords[datum] ?: emptyList()).filter { it.id != same.id })
+        )
+        val corrected = addEntry(without, datum, startTime, endTime, pauseMinutes, remoteHours, SOURCE_PDF_IMPORT)
+        return if (corrected.state != null) corrected else addEntry(state, datum, startTime, endTime, pauseMinutes, remoteHours, SOURCE_PDF_IMPORT)
+    }
 
     private fun addEntry(
         state: TrackerState,
@@ -220,6 +263,34 @@ class TrackerRepository(private val storage: LocalStorage) {
         return state.copy(currentMonthData = updatedMonthData)
     }
 
+    /** True when [year]/[monthNum] has at least one entry in the daily records. */
+    fun monthHasEntries(state: TrackerState, year: Int, monthNum: Int): Boolean =
+        state.dailyRecords.any { (datum, entries) ->
+            val parts = datum.split("-")
+            entries.isNotEmpty() && parts.size == 3 &&
+                parts[0].toIntOrNull() == year && parts[1].toIntOrNull() == monthNum
+        }
+
+    /** The history without duplicates (last one wins per month and year), always sorted by year and month. */
+    fun normalizeHistory(history: List<MonthData>): List<MonthData> =
+        history.associateBy { it.jahr to it.monat }.values
+            .sortedWith(compareBy({ it.jahr }, { MonthNames.getMonthNumber(it.monat) }))
+
+    /**
+     * Puts a closed month into the history: a month that is already there is never added twice (its
+     * snapshot is updated only when entries exist), a month without entries is never added, and the
+     * result is sorted no matter in which order the months were closed.
+     */
+    private fun mergeIntoHistory(history: List<MonthData>, month: MonthData, hasEntries: Boolean): List<MonthData> {
+        val exists = history.any { it.jahr == month.jahr && it.monat == month.monat }
+        val merged = when {
+            exists && hasEntries -> history.map { if (it.jahr == month.jahr && it.monat == month.monat) month else it }
+            exists || !hasEntries -> history
+            else -> history + month
+        }
+        return normalizeHistory(merged)
+    }
+
     fun closeMonth(state: TrackerState): Pair<TrackerState, String?> {
         val monthNum = MonthNames.getMonthNumber(state.aktuellerMonat)
 
@@ -237,13 +308,20 @@ class TrackerRepository(private val storage: LocalStorage) {
             quartal = TrackerCalculations.getQuartalForMonth(state.aktuellerMonat, state.aktuellesJahr)
         )
 
-        val updatedHistory = state.monatlicheHistorie + completedMonth
+        val hasEntries = monthHasEntries(state, state.aktuellesJahr, monthNum)
+        val updatedHistory = mergeIntoHistory(state.monatlicheHistorie, completedMonth, hasEntries)
 
         var intermediateState = state.copy(monatlicheHistorie = updatedHistory)
 
-        // Check quarterly adjustment
-        val (adjustedState, quarterMessage) = checkQuarterlyAdjustment(intermediateState, monthNum, state.aktuellesJahr)
-        intermediateState = adjustedState
+        // Check quarterly adjustment (only when this month is newly in the history: closing a month again,
+        // which merely refreshes its snapshot, must not adjust the quote a second time)
+        val wasInHistory = state.monatlicheHistorie.any { it.jahr == completedMonth.jahr && it.monat == completedMonth.monat }
+        var quarterMessage: String? = null
+        if (!wasInHistory && updatedHistory != state.monatlicheHistorie) {
+            val (adjustedState, msg) = checkQuarterlyAdjustment(intermediateState, monthNum, state.aktuellesJahr)
+            intermediateState = adjustedState
+            quarterMessage = msg
+        }
 
         val nextMonthNum = MonthNames.getMonthNumber(nextMonth)
         val sollGesamt = TrackerCalculations.calculateSollStundenMonth(nextYear, nextMonthNum, intermediateState.sollStundenProTag)
@@ -374,32 +452,30 @@ class TrackerRepository(private val storage: LocalStorage) {
         // Calculate month data for this specific month
         val monthData = calculateMonthData(state, year, monthNum)
 
-        // Check if this month is already in history
+        val hasEntries = monthHasEntries(state, year, monthNum)
         val alreadyInHistory = state.monatlicheHistorie.any {
             it.monat == monthName && it.jahr == year
         }
 
+        // Nothing to close: no entries and not in the history yet -> never add an empty month
+        if (!hasEntries && !alreadyInHistory) return Pair(state, null)
+
         if (alreadyInHistory) {
-            // Just remove entries, don't add to history again
-            val updatedRecords = state.dailyRecords.toMutableMap()
-            val keysToRemove = mutableListOf<String>()
-
-            for (datum in updatedRecords.keys) {
+            // Never add the month twice: update its snapshot when entries exist, remove the entries
+            val updatedRecords = state.dailyRecords.filterKeys { datum ->
                 val parts = datum.split("-")
-                if (parts.size == 3) {
-                    val entryYear = parts[0].toIntOrNull() ?: continue
-                    val entryMonth = parts[1].toIntOrNull() ?: continue
-                    if (entryYear == year && entryMonth == monthNum) {
-                        keysToRemove.add(datum)
-                    }
-                }
+                !(parts.size == 3 && parts[0].toIntOrNull() == year && parts[1].toIntOrNull() == monthNum)
             }
-
-            keysToRemove.forEach { updatedRecords.remove(it) }
-            return Pair(state.copy(dailyRecords = updatedRecords), null)
+            return Pair(
+                state.copy(
+                    dailyRecords = updatedRecords,
+                    monatlicheHistorie = mergeIntoHistory(state.monatlicheHistorie, monthData, hasEntries)
+                ),
+                null
+            )
         }
 
-        // Add to history
+        // Add to history (sorted by year and month)
         val updatedHistory = state.monatlicheHistorie + monthData
 
         // Remove entries for this month from dailyRecords
@@ -419,8 +495,7 @@ class TrackerRepository(private val storage: LocalStorage) {
 
         keysToRemove.forEach { updatedRecords.remove(it) }
 
-        // Sort history by date
-        val sortedHistory = updatedHistory.sortedWith(compareBy({ it.jahr }, { MonthNames.getMonthNumber(it.monat) }))
+        val sortedHistory = normalizeHistory(updatedHistory)
 
         // Update current month view to remaining entries or system date
         val remainingMonths = getMonthsFromEntries(state.copy(dailyRecords = updatedRecords))
@@ -547,10 +622,17 @@ class TrackerRepository(private val storage: LocalStorage) {
         validateState(parsed)?.let { return OperationResult(error = it) }
         val monthName = parsed.aktuellerMonat
         val normalized = parsed.copy(
+            monatlicheHistorie = normalizeHistory(parsed.monatlicheHistorie),
             currentMonthData = parsed.currentMonthData.copy(monat = monthName, jahr = parsed.aktuellesJahr),
-            currentQuartal = TrackerCalculations.getQuartalForMonth(monthName, parsed.aktuellesJahr)
+            currentQuartal = TrackerCalculations.getQuartalForMonth(monthName, parsed.aktuellesJahr),
+            gleitzeitSaldo = null
         )
-        return OperationResult(state = recalculateMonthlyTotals(normalized))
+        // The flextime balance is not covered by validateState: drop implausible figures and period data
+        val saldo = parsed.gleitzeitSaldo?.let {
+            val periodOk = it.month in 1..12 && it.year in 2000..2100
+            it.copy(year = if (periodOk) it.year else null, month = if (periodOk) it.month else null)
+        }
+        return OperationResult(state = recalculateMonthlyTotals(withFlexBalance(normalized, saldo)))
     }
 
     private fun validateState(s: TrackerState): String? {

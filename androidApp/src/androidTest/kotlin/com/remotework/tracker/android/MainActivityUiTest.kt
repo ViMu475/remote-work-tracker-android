@@ -3,6 +3,7 @@ package com.remotework.tracker.android
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasClickAction
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.test.core.app.ActivityScenario
@@ -96,8 +98,8 @@ class MainActivityUiTest {
     @Test
     fun seededEntry_isListedWithItsHours() {
         launch(seededState())
-        compose.onNodeWithText("2025-10-06").assertIsDisplayed()
-        compose.onNodeWithText("Remote: 8.00h | Netto: 8.00h").assertIsDisplayed()
+        compose.onNodeWithText("06.10.2025").assertIsDisplayed()
+        compose.onNodeWithText("Remote: 8,00h | Netto: 8,00h").assertIsDisplayed()
     }
 
     // --- add entry --------------------------------------------------------------------------------
@@ -105,26 +107,26 @@ class MainActivityUiTest {
     @Test
     fun addEntry_savesAndSwitchesToTheEntryMonth() {
         launch()
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Arbeitszeit erfassen").assertIsDisplayed()
         compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-10-06")
         compose.onNodeWithText("Speichern").performClick()
 
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("2025-10-06").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("06.10.2025").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Einträge (Oktober 2025)").assertIsDisplayed()
         assertEquals(1, storedState().dailyRecords["2025-10-06"]?.size)
         // the card shows the new month's totals (the automatic month switch itself is not persisted)
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("8.0h").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("8,0h").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
     @Test
     fun addEntry_onAHolidayShowsTheErrorAndSavesNothing() {
         launch()
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-10-03")
         compose.onNodeWithText("Speichern").performClick()
 
@@ -135,7 +137,7 @@ class MainActivityUiTest {
     @Test
     fun addEntry_overlappingAnExistingEntryIsRejected() {
         launch(seededState())
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-10-06")
         compose.onNodeWithText("Start (HH:MM)").performTextReplacement("10:00")
         compose.onNodeWithText("Ende (HH:MM)").performTextReplacement("12:00")
@@ -150,7 +152,7 @@ class MainActivityUiTest {
     @Test
     fun deleteEntry_asksForConfirmationAndRemovesTheEntry() {
         launch(seededState())
-        compose.onNodeWithContentDescription("Löschen").performClick()
+        compose.onNodeWithContentDescription("Eintrag 2025-10-06 löschen").performClick()
         compose.onNodeWithText("Wirklich löschen?").assertIsDisplayed()
         assertEquals("nothing deleted before confirming", 1, storedState().dailyRecords.size)
 
@@ -165,11 +167,11 @@ class MainActivityUiTest {
     @Test
     fun deleteEntry_cancelKeepsTheEntry() {
         launch(seededState())
-        compose.onNodeWithContentDescription("Löschen").performClick()
+        compose.onNodeWithContentDescription("Eintrag 2025-10-06 löschen").performClick()
         compose.onNodeWithText("Abbrechen").performClick()
         compose.waitForIdle()
         assertEquals(1, storedState().dailyRecords.size)
-        compose.onNodeWithText("2025-10-06").assertIsDisplayed()
+        compose.onNodeWithText("06.10.2025").assertIsDisplayed()
     }
 
     // --- clear all with confirmation ---------------------------------------------------------------
@@ -190,8 +192,8 @@ class MainActivityUiTest {
             compose.onAllNodesWithText("Wirklich alles löschen?", substring = true).fetchSemanticsNodes().isEmpty()
         }
         assertEquals(1, storedState().dailyRecords.size)
-        scrollTo("2025-10-06")
-        compose.onNodeWithText("2025-10-06").assertIsDisplayed()
+        scrollTo("06.10.2025")
+        compose.onNodeWithText("06.10.2025").assertIsDisplayed()
     }
 
     @Test
@@ -247,7 +249,7 @@ class MainActivityUiTest {
     @Test
     fun addEntry_acceptsDecimalCommaForRemoteHours() {
         launch()
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-10-06")
         compose.onNodeWithText("Remote Stunden (leer = alles)").performTextReplacement("4,5")
         compose.onNodeWithText("Speichern").performClick()
@@ -261,7 +263,7 @@ class MainActivityUiTest {
     @Test
     fun addEntry_invalidNumberShowsAFieldErrorAndKeepsTheDialogOpen() {
         launch()
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-10-06")
         compose.onNodeWithText("Pause (Minuten)").performTextReplacement("NaN")
         compose.onNodeWithText("Speichern").performClick()
@@ -274,7 +276,7 @@ class MainActivityUiTest {
     @Test
     fun addEntry_wrongRemoteTextIsRejectedInsteadOfBookingTheWholeDay() {
         launch()
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-10-06")
         compose.onNodeWithText("Remote Stunden (leer = alles)").performTextReplacement("vier")
         compose.onNodeWithText("Speichern").performClick()
@@ -286,7 +288,7 @@ class MainActivityUiTest {
     @Test
     fun addEntry_malformedTimeIsReportedInsideTheDialog() {
         launch()
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-10-06")
         compose.onNodeWithText("Start (HH:MM)").performTextReplacement("99:99")
         compose.onNodeWithText("Speichern").performClick()
@@ -298,7 +300,7 @@ class MainActivityUiTest {
     @Test
     fun addDialog_keepsItsContentAfterRotation() {
         launch()
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
         compose.onNodeWithText("Pause (Minuten)").performTextReplacement("45")
         scenario!!.recreate()
 
@@ -325,7 +327,7 @@ class MainActivityUiTest {
     fun darkMode_togglePersistsAndStatCardsBecomeDark() {
         launch(seededState())
         fun statCardLuminance(): Double {
-            val label = compose.onNodeWithText("Soll").fetchSemanticsNode().boundsInRoot
+            val label = compose.onNodeWithText("Soll", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
             // a pixel left of the centred label lies inside the card padding, i.e. on the card background
             val x = (label.left - 6f).toInt().coerceAtLeast(0)
@@ -359,7 +361,7 @@ class MainActivityUiTest {
 
         // October 2025: 22 working days * 7.5 h = 165 h, 40 % -> 66.0 h
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("66.0h").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("66,0h").fetchSemanticsNodes().isNotEmpty()
         }
         val saved = storedState()
         assertEquals(7.5, saved.sollStundenProTag, 1e-9)
@@ -402,7 +404,7 @@ class MainActivityUiTest {
     fun exportButtons_areVisibleOnOneLineEach() {
         launch(seededState())
         scrollTo("Wiederherstellen")
-        for (label in listOf("CSV", "Backup", "Wiederherstellen")) {
+        for (label in listOf("CSV exportieren", "PDF exportieren", "Backup erstellen", "Wiederherstellen", "PDF importieren")) {
             compose.onAllNodesWithText(label).onFirst().assertIsDisplayed()
         }
         // regression: "Wiederherstellen" used to wrap into two lines (the button's minimum height hides that,
@@ -412,5 +414,48 @@ class MainActivityUiTest {
         textNode.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(layouts)
         assertTrue("no text layout available", layouts.isNotEmpty())
         assertEquals("label must stay on one line", 1, layouts[0].lineCount)
+    }
+
+    // --- design review additions ---------------------------------------------------------------------
+
+    @Test
+    fun addEntry_invalidDateAndTimeAreMarkedPerField() {
+        launch()
+        compose.onNodeWithContentDescription("Eintrag hinzufügen").performClick()
+        compose.onNodeWithText("Datum (YYYY-MM-DD)").performTextReplacement("2025-13-45")
+        compose.onNodeWithText("Start (HH:MM)").performTextReplacement("25:99")
+        compose.onNodeWithText("Speichern").performClick()
+        compose.onNodeWithText("Ungültiges Datum (JJJJ-MM-TT)").assertIsDisplayed()
+        compose.onNodeWithText("Ungültige Zeitangabe!").assertIsDisplayed()
+        assertTrue(storedState().dailyRecords.isEmpty())
+    }
+
+    @Test
+    fun onlyOneAddActionAndPdfImportLivesInTheExportCard() {
+        launch(seededState())
+        compose.onAllNodesWithContentDescription("Eintrag hinzufügen").assertCountEquals(1)
+        scrollTo("PDF importieren")
+        compose.onNodeWithText("PDF importieren").assertIsDisplayed()
+    }
+
+    @Test
+    fun editAndDeleteButtonsNameTheirEntryForScreenReaders() {
+        launch(seededState())
+        compose.onNodeWithContentDescription("Eintrag 2025-10-06 bearbeiten").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Eintrag 2025-10-06 löschen").assertIsDisplayed()
+    }
+
+    @Test
+    fun progressBarHasASpokenDescription() {
+        launch(seededState())
+        compose.onNodeWithContentDescription("8,00 von 70,40 Stunden").assertIsDisplayed()
+    }
+
+    @Test
+    fun englishModeTranslatesQuotaAndUsesDecimalPoint() {
+        launch(seededState())
+        compose.onNodeWithText("EN").performClick()
+        compose.onNodeWithText("Quota", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Remote: 8.00h | Net: 8.00h").assertIsDisplayed()
     }
 }

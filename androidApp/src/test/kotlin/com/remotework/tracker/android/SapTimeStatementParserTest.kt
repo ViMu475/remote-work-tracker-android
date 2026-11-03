@@ -1,5 +1,7 @@
 package com.remotework.tracker.android
 
+import com.remotework.tracker.ParsedWorkEntry
+import com.remotework.tracker.SapTimeStatementParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -278,5 +280,65 @@ class SapTimeStatementParserTest {
         )
         assertEquals(12, e.count { it.isRemote })
         assertEquals(9, e.count { !it.isRemote })
+    }
+
+    // --- breaks: the app must show the statement's "Istz" (booked time minus the legal break) -----
+
+    private fun net(e: ParsedWorkEntry) =
+        com.remotework.tracker.TrackerCalculations.calculateNetHours(e.startTime, e.endTime, e.pauseMinutes).netHours
+
+    @Test
+    fun `single booking gets the legal break`() {
+        val e = parse(germanHeader, "01 MI    Zeitbuchungen : Remote Work     08:00    17:00            9,00           8,50")
+        assertEquals(30.0, e[0].pauseMinutes, 1e-9)
+        assertEquals(8.5, net(e[0]), 1e-9)
+    }
+
+    @Test
+    fun `booking above nine and a half hours never drops below nine hours`() {
+        val e = parse(germanHeader, "02 DO    Zeitbuchungen : Remote Work     07:50    17:25            9,58           9,00")
+        assertEquals(9.0, net(e[0]), 1e-9)
+    }
+
+    @Test
+    fun `short booking has no break`() {
+        val e = parse(germanHeader, "03 FR    Zeitbuchungen : Remote Work     08:00    13:30            5,50           5,50")
+        assertEquals(0.0, e[0].pauseMinutes, 1e-9)
+    }
+
+    @Test
+    fun `split day with a long gap keeps both parts without a deduction`() {
+        val e = parse(
+            germanHeader,
+            "06 MO    Zeitbuchungen : Remote Work     08:00    11:00            3,00           8,00",
+            "         Zeitbuchungen : anwesend        12:00    17:00            5,00"
+        )
+        assertEquals(2, e.size)
+        assertEquals(0.0, e[0].pauseMinutes, 1e-9)
+        assertEquals(0.0, e[1].pauseMinutes, 1e-9)
+        assertEquals(8.0, e.sumOf { net(it) }, 1e-9)
+    }
+
+    @Test
+    fun `split day with a short gap deducts the missing rest from the longest part`() {
+        val e = parse(
+            germanHeader,
+            "07 DI    Zeitbuchungen : Remote Work     08:00    11:00            3,00           8,00",
+            "         Zeitbuchungen : anwesend        11:10    17:00            5,83"
+        )
+        assertEquals(0.0, e[0].pauseMinutes, 1e-9)
+        assertEquals(20.0, e[1].pauseMinutes, 1e-9)
+    }
+
+    @Test
+    fun `flextime compensation is neither a booking nor does it change the break`() {
+        val e = parse(
+            germanHeader,
+            "08 MI    Gleitzeitausgleich              08:00    12:00            4,00           8,00",
+            "         Zeitbuchungen : Remote Work     12:00    17:00            5,00"
+        )
+        assertEquals(1, e.size)
+        assertEquals(0.0, e[0].pauseMinutes, 1e-9)
+        assertEquals(5.0, net(e[0]), 1e-9)
     }
 }

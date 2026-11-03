@@ -12,6 +12,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Repository tests; the Android LocalStorage runs on an in-memory SharedPreferences fake. */
@@ -532,9 +533,10 @@ class TrackerRepositoryTest {
     private fun histMonth(name: String, year: Int, remote: Double, max: Double) =
         MonthData(name, year, 40.0, 160.0, max, remote, remote, quartal = null)
 
+    /** March 2026 is the viewed month and has one entry (an empty month is never closed into the history). */
     private fun marchWith(history: List<MonthData>, quote: Double) = repo.switchToMonth(
         october2025(quote = quote, history = history), 2026, 3
-    )
+    ).add("2026-03-02")
 
     @Test
     fun quarter_underQuotaRaisesTheQuotaByTenPoints() {
@@ -711,5 +713,231 @@ class TrackerRepositoryTest {
         assertEquals("de", reset.language)
         assertFalse(reset.darkMode)
         assertNotEquals(s.language, reset.language)
+    }
+
+    // --- close month: no empty month, no duplicate, history always sorted -------------------------
+
+    private fun names(s: TrackerState) = s.monatlicheHistorie.map { it.monat to it.jahr }
+
+    private fun snapshot(name: String, year: Int, remote: Double = 10.0) =
+        MonthData(name, year, 40.0, 160.0, 64.0, remote, 160.0, quartal = null)
+
+    @Test
+    fun closeSpecificMonth_monthWithoutEntriesIsNotAddedToTheHistory() {
+        val s = october2025()
+        val (after, msg) = repo.closeSpecificMonth(s, 2025, 10)
+        assertNull(msg)
+        assertTrue(after.monatlicheHistorie.isEmpty())
+        assertEquals(s, after)                                   // nothing at all changed
+    }
+
+    @Test
+    fun closeSpecificMonth_emptyMonthLeavesTheExistingHistoryUntouched() {
+        val s = october2025(history = listOf(snapshot("August", 2025), snapshot("September", 2025)))
+        val (after, _) = repo.closeSpecificMonth(s, 2025, 10)
+        assertEquals(listOf("August" to 2025, "September" to 2025), names(after))
+    }
+
+    @Test
+    fun closeSpecificMonth_monthWithEntriesIsAdded() {
+        val (after, _) = repo.closeSpecificMonth(october2025().add("2025-10-06"), 2025, 10)
+        assertEquals(listOf("Oktober" to 2025), names(after))
+    }
+
+    @Test
+    fun closeSpecificMonth_monthAlreadyInHistoryWithoutEntriesKeepsItsSnapshot() {
+        val s = october2025(history = listOf(snapshot("Oktober", 2025, remote = 77.0)))
+        val (after, _) = repo.closeSpecificMonth(s, 2025, 10)
+        assertEquals(1, after.monatlicheHistorie.size)
+        assertEquals(77.0, after.monatlicheHistorie[0].istRemoteStundenLaufend, tol)
+    }
+
+    @Test
+    fun closeSpecificMonth_monthAlreadyInHistoryWithEntriesIsUpdatedNotDuplicated() {
+        val s = october2025(history = listOf(snapshot("Oktober", 2025, remote = 77.0))).add("2025-10-06")
+        val (after, _) = repo.closeSpecificMonth(s, 2025, 10)
+        assertEquals(1, after.monatlicheHistorie.size)
+        assertEquals(8.0, after.monatlicheHistorie[0].istRemoteStundenLaufend, tol)
+        assertFalse("2025-10-06" in after.dailyRecords)
+    }
+
+    @Test
+    fun closeSpecificMonth_sameMonthOfAnotherYearIsADifferentMonth() {
+        val s = october2025(history = listOf(snapshot("Oktober", 2024))).add("2025-10-06")
+        val (after, _) = repo.closeSpecificMonth(s, 2025, 10)
+        assertEquals(listOf("Oktober" to 2024, "Oktober" to 2025), names(after))
+    }
+
+    @Test
+    fun closeSpecificMonth_monthsClosedInAnyOrderEndUpSorted() {
+        var s = october2025()
+            .add("2025-07-01").add("2025-05-05").add("2026-01-05").add("2025-12-01").add("2025-06-02")
+        for ((y, m) in listOf(2025 to 7, 2025 to 5, 2026 to 1, 2025 to 12, 2025 to 6)) {
+            s = repo.closeSpecificMonth(s, y, m).first
+        }
+        assertEquals(
+            listOf("Mai" to 2025, "Juni" to 2025, "Juli" to 2025, "Dezember" to 2025, "Januar" to 2026),
+            names(s)
+        )
+    }
+
+    @Test
+    fun closeSpecificMonth_alreadyExistingHistoryIsSortedAfterAClose() {
+        val shuffled = listOf(snapshot("Juli", 2025), snapshot("Mai", 2025), snapshot("Juni", 2025))
+        val s = october2025(history = shuffled).add("2025-10-06")
+        assertEquals(listOf("Mai", "Juni", "Juli", "Oktober"), repo.closeSpecificMonth(s, 2025, 10).first.monatlicheHistorie.map { it.monat })
+    }
+
+    @Test
+    fun closeMonth_monthWithoutEntriesIsNotAddedButTheMonthAdvances() {
+        val (after, _) = repo.closeMonth(october2025())
+        assertTrue(after.monatlicheHistorie.isEmpty())
+        assertEquals("November", after.aktuellerMonat)
+    }
+
+    @Test
+    fun closeMonth_neverAddsTheSameMonthTwice() {
+        val s = october2025(history = listOf(snapshot("Oktober", 2025, remote = 77.0))).add("2025-10-06")
+        val (after, _) = repo.closeMonth(s)
+        assertEquals(listOf("Oktober" to 2025), names(after))
+    }
+
+    @Test
+    fun closeMonth_keepsTheHistorySorted() {
+        val s = october2025(history = listOf(snapshot("Dezember", 2025), snapshot("August", 2025))).add("2025-10-06")
+        assertEquals(listOf("August", "Oktober", "Dezember"), repo.closeMonth(s).first.monatlicheHistorie.map { it.monat })
+    }
+
+    @Test
+    fun closeMonth_noQuarterAdjustmentWhenNothingWasAdded() {
+        val q = listOf(snapshot("Januar", 2026), snapshot("Februar", 2026))
+        val march = repo.switchToMonth(october2025(history = q), 2026, 3)
+        val (after, msg) = repo.closeMonth(march)                // March is empty
+        assertNull(msg)
+        assertEquals(40.0, after.individuelleQuoteProzent, tol)
+    }
+
+    @Test
+    fun monthHasEntries_onlyTrueForMonthsWithEntries() {
+        val s = october2025().add("2025-10-06")
+        assertTrue(repo.monthHasEntries(s, 2025, 10))
+        assertFalse(repo.monthHasEntries(s, 2025, 11))
+        assertFalse(repo.monthHasEntries(s, 2024, 10))
+        assertFalse(repo.monthHasEntries(october2025(), 2025, 10))
+    }
+
+    @Test
+    fun normalizeHistory_sortsAndRemovesDuplicatesLastOneWins() {
+        val got = repo.normalizeHistory(
+            listOf(snapshot("Mai", 2026, 1.0), snapshot("Januar", 2026), snapshot("Mai", 2026, 2.0), snapshot("Dezember", 2025))
+        )
+        assertEquals(listOf("Dezember" to 2025, "Januar" to 2026, "Mai" to 2026), got.map { it.monat to it.jahr })
+        assertEquals(2.0, got[2].istRemoteStundenLaufend, tol)
+        assertTrue(repo.normalizeHistory(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun restoreState_sortsAShuffledHistoryAndRemovesDuplicates() {
+        val shuffled = listOf(snapshot("Juli", 2025), snapshot("Mai", 2025), snapshot("Mai", 2025, 5.0), snapshot("Juni", 2025))
+        val restored = assertNotNull(restoreOf(october2025(history = shuffled)).state)
+        assertEquals(listOf("Mai" to 2025, "Juni" to 2025, "Juli" to 2025), names(restored))
+    }
+
+    // --- statement import: same time as the statement, loading it again corrects in place ----------
+
+    @Test
+    fun importWorkEntry_storesTheBreakAndShowsTheStatementTime() {
+        val s = assertNotNull(repo.importWorkEntry(october2025(), "2025-10-06", "08:00", "17:00", 30.0, null).state)
+        val e = s.dailyRecords.getValue("2025-10-06").single()
+        assertEquals(8.5, e.totalStundenHeute, tol)
+        assertEquals(8.5, e.remoteStundenHeute, tol)
+    }
+
+    @Test
+    fun importWorkEntry_sameStatementAgainCorrectsAnOldImportWithoutDuplicate() {
+        val old = assertNotNull(repo.importWorkEntry(october2025(), "2025-10-06", "08:00", "17:00", 0.0, null).state)
+        assertEquals(9.0, old.dailyRecords.getValue("2025-10-06").single().totalStundenHeute, tol)
+        val fixed = assertNotNull(repo.importWorkEntry(old, "2025-10-06", "08:00", "17:00", 30.0, null).state)
+        val day = fixed.dailyRecords.getValue("2025-10-06")
+        assertEquals(1, day.size)
+        assertEquals(8.5, day[0].totalStundenHeute, tol)
+        assertEquals(8.5, fixed.currentMonthData.istArbeitszeitLaufend, tol)
+    }
+
+    @Test
+    fun importWorkEntry_neverOverwritesAManualEntry() {
+        val manual = october2025().add("2025-10-06")
+        val r = repo.importWorkEntry(manual, "2025-10-06", "08:00", "16:30", 30.0, null)
+        assertNull(r.state)
+        assertNotNull(r.error)
+    }
+
+    // --- Flextime balance -----------------------------------------------------------------------
+
+    @Test
+    fun flexBalanceIsStoredInTheState() {
+        val s = october2025()
+        val out = repo.withFlexBalance(s, FlexBalance(previous = 1.5, current = -2.0, total = -0.5, year = 2025, month = 12))
+        assertEquals(-0.5, out.gleitzeitSaldo!!.total!!, 1e-9)
+        assertEquals(12, out.gleitzeitSaldo!!.month)
+    }
+
+    @Test
+    fun missingOrImplausibleBalanceKeepsTheState() {
+        val s = october2025()
+        assertSame(s, repo.withFlexBalance(s, null))
+        assertSame(s, repo.withFlexBalance(s, FlexBalance(current = Double.NaN, total = 99999.0)))
+    }
+
+    @Test
+    fun oldBackupWithoutBalanceStillLoads() {
+        val json = repo.serializeState(october2025()).replace(Regex(""","gleitzeitSaldo":[^,}]*"""), "")
+        assertNull(repo.restoreState(json).state!!.gleitzeitSaldo)
+    }
+
+    @Test
+    fun balanceSurvivesBackupAndRestore() {
+        val s = repo.withFlexBalance(october2025(), FlexBalance(total = 7.25))
+        assertEquals(7.25, repo.restoreState(repo.serializeState(s)).state!!.gleitzeitSaldo!!.total!!, 1e-9)
+    }
+
+    // --- Target hours are recalculated on load -------------------------------------------------
+
+    private fun staleDecember(history: List<MonthData> = emptyList()) = TrackerState(
+        aktuellerMonat = "Dezember", aktuellesJahr = 2025,
+        currentMonthData = MonthData("Dezember", 2025, 40.0, 168.0, 67.2, 0.0, 0.0),   // saved before the special days
+        currentQuartal = "Q4/2025", monatlicheHistorie = history
+    )
+
+    @Test
+    fun loadRecalculatesTheTargetOfTheCurrentMonth() {
+        repo.saveState(staleDecember())
+        val loaded = repo.loadState()
+        assertEquals(156.0, loaded.currentMonthData.sollStundenGesamt, 1e-9)   // 24 Dec off, 31 Dec half
+        assertEquals(156.0 * 0.4, loaded.currentMonthData.maxRemoteStunden, 1e-9)
+    }
+
+    @Test
+    fun loadKeepsClosedMonthsAsTheyWereSaved() {
+        val closed = MonthData("Dezember", 2024, 40.0, 168.0, 67.2, 10.0, 80.0, quartal = "Q4/2024")
+        repo.saveState(staleDecember(history = listOf(closed)))
+        assertEquals(listOf(closed), repo.loadState().monatlicheHistorie)
+    }
+
+    @Test
+    fun loadRecalculatesWithTheSavedDailyTargetAndQuota() {
+        val s = staleDecember().copy(sollStundenProTag = 6.0, individuelleQuoteProzent = 50.0)
+        repo.saveState(s)
+        val m = repo.loadState().currentMonthData
+        assertEquals(19.5 * 6.0, m.sollStundenGesamt, 1e-9)
+        assertEquals(19.5 * 6.0 * 0.5, m.maxRemoteStunden, 1e-9)
+        assertEquals(50.0, m.individuelleQuote, 1e-9)
+    }
+
+    @Test
+    fun loadOfAnUpToDateStateChangesNothing() {
+        val s = october2025()
+        repo.saveState(s)
+        assertEquals(s, repo.loadState())
     }
 }

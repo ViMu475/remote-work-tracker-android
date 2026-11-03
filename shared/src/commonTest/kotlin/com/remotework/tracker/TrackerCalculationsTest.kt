@@ -196,8 +196,8 @@ class TrackerCalculationsTest {
 
     @Test
     fun soll_decemberSubtractsChristmasDays() {
-        // Dec 2025: 23 weekdays minus Thu 25 and Fri 26
-        assertEquals(168.0, TrackerCalculations.calculateSollStundenMonth(2025, 12, 8.0), tol)
+        // Dec 2025: 23 weekdays minus Thu 25 and Fri 26, minus Wed 24 (off) and half of Wed 31
+        assertEquals(156.0, TrackerCalculations.calculateSollStundenMonth(2025, 12, 8.0), tol)
     }
 
     @Test
@@ -209,7 +209,8 @@ class TrackerCalculationsTest {
         // May: 21 weekdays minus Ascension (6th), Whit Monday (17th), Corpus Christi (27th); 1 May is a Saturday
         assertEquals(144.0, TrackerCalculations.calculateSollStundenMonth(2027, 5, 8.0), tol)
         // Dec: Christmas days fall on a weekend
-        assertEquals(184.0, TrackerCalculations.calculateSollStundenMonth(2027, 12, 8.0), tol)
+        // Fri 24 off, Fri 31 half
+        assertEquals(172.0, TrackerCalculations.calculateSollStundenMonth(2027, 12, 8.0), tol)
     }
 
     @Test
@@ -231,7 +232,8 @@ class TrackerCalculationsTest {
         // May: 1 May, Ascension (10th), Whit Monday (21st), Corpus Christi (31st)
         assertEquals(152.0, TrackerCalculations.calculateSollStundenMonth(2029, 5, 8.0), tol)
         // Dec: Tue 25 and Wed 26 Dec
-        assertEquals(152.0, TrackerCalculations.calculateSollStundenMonth(2029, 12, 8.0), tol)
+        // Mon 24 off, Mon 31 half
+        assertEquals(140.0, TrackerCalculations.calculateSollStundenMonth(2029, 12, 8.0), tol)
     }
 
     @Test
@@ -256,7 +258,8 @@ class TrackerCalculationsTest {
         // Nov: All Saints (Fri 1st)
         assertEquals(160.0, TrackerCalculations.calculateSollStundenMonth(2030, 11, 8.0), tol)
         // Dec: Wed 25 and Thu 26 Dec
-        assertEquals(160.0, TrackerCalculations.calculateSollStundenMonth(2030, 12, 8.0), tol)
+        // Tue 24 off, Tue 31 half
+        assertEquals(148.0, TrackerCalculations.calculateSollStundenMonth(2030, 12, 8.0), tol)
     }
 
     @Test
@@ -282,5 +285,53 @@ class TrackerCalculationsTest {
     @Test
     fun quartal_unknownMonthFallsBackToQ1() {
         assertEquals("Q1/2026", TrackerCalculations.getQuartalForMonth("Smarch", 2026))
+    }
+
+    // --- break of an imported statement day (derived from real statements; fictional values here) ----
+
+    @Test
+    fun statementBreak_followsTheTimeSystemRule() {
+        fun h(h: Int, m: Int = 0) = h * 60 + m
+        assertEquals(0, TrackerCalculations.statementBreakMinutes(h(4)))
+        assertEquals(0, TrackerCalculations.statementBreakMinutes(h(6)))
+        assertEquals(2, TrackerCalculations.statementBreakMinutes(h(6, 2)))     // only the excess above 6 h
+        assertEquals(30, TrackerCalculations.statementBreakMinutes(h(6, 30)))
+        assertEquals(30, TrackerCalculations.statementBreakMinutes(h(9, 30)))
+        assertEquals(40, TrackerCalculations.statementBreakMinutes(h(9, 40)))   // net never below 9 h
+        assertEquals(45, TrackerCalculations.statementBreakMinutes(h(10)))
+        assertEquals(0, TrackerCalculations.statementBreakMinutes(h(8), gapMinutes = 45))
+        assertEquals(20, TrackerCalculations.statementBreakMinutes(h(8), gapMinutes = 10))
+    }
+
+    @Test
+    fun assignStatementBreaks_perDay() {
+        assertEquals(listOf(30.0), TrackerCalculations.assignStatementBreaks(listOf("08:00" to "17:00")))
+        assertEquals(listOf(0.0, 0.0), TrackerCalculations.assignStatementBreaks(listOf("08:00" to "11:00", "12:00" to "17:00")))
+        assertEquals(listOf(0.0, 20.0), TrackerCalculations.assignStatementBreaks(listOf("08:00" to "11:00", "11:10" to "17:00")))
+        assertEquals(listOf(0.0, 0.0), TrackerCalculations.assignStatementBreaks(listOf("12:00" to "17:00", "08:00" to "11:00")))
+        assertEquals(listOf(0.0), TrackerCalculations.assignStatementBreaks(listOf("08:00" to "13:00")))
+        assertTrue(TrackerCalculations.assignStatementBreaks(emptyList()).isEmpty())
+    }
+
+    // --- Special days 24 Dec (off) and 31 Dec (half day) ---------------------------------------
+
+    @Test
+    fun december2025HasTwoHolidaysAnOffDayAndAHalfDay() {
+        // 23 weekdays - 25./26.12. (holidays) - 24.12. (off) - 0.5 (31.12.) = 19.5 days
+        assertEquals(19.5 * 8.0, TrackerCalculations.calculateSollStundenMonth(2025, 12, 8.0), tol)
+    }
+
+    @Test
+    fun december2026CountsOnly20AndAHalfDays() {
+        // 23 weekdays - 25.12. (holiday) - 24.12. (off) - 0.5 (31.12.)
+        assertEquals(20.5 * 8.0, TrackerCalculations.calculateSollStundenMonth(2026, 12, 8.0), tol)
+    }
+
+    @Test
+    fun specialDaysAreFullDaysInOtherMonths() {
+        assertEquals(1.0, TrackerCalculations.specialDayFactor(11, 24), tol)
+        assertEquals(1.0, TrackerCalculations.specialDayFactor(1, 31), tol)
+        assertEquals(0.0, TrackerCalculations.specialDayFactor(12, 24), tol)
+        assertEquals(0.5, TrackerCalculations.specialDayFactor(12, 31), tol)
     }
 }

@@ -50,7 +50,8 @@ The instrumented test `RealStatementsInstrumentedTest` needs real statements tha
 - Dashboard: month and quarter quota, color-coded progress bar, multi-month selector
 - History of closed months, sorted, **red background** when the remote limit is exceeded, **final report** grouped by quarter with a rating
 - ArbZG break rules for manual entries, weekend blocking, Bavarian holidays 2025–2030
-- SAP time statement PDF import (imported entries carry no break warning)
+- Company special days in the target hours: 24 Dec is off, 31 Dec counts half (as in the statement's `Sollz`)
+- SAP time statement PDF import (imported entries carry no break warning); the flextime balance (GLZ-Saldo) of the statement is shown on the dashboard
 - CSV export, PDF monthly report, JSON backup and restore; dark mode; German/English
 
 ## Project structure
