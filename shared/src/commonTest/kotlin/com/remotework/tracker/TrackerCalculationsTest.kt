@@ -313,6 +313,22 @@ class TrackerCalculationsTest {
         assertTrue(TrackerCalculations.assignStatementBreaks(emptyList()).isEmpty())
     }
 
+    @Test
+    fun statementBreak_bookingOverSixHoursKeepsAMinimumBreakDespiteAGap() {
+        fun h(h: Int, m: Int = 0) = h * 60 + m
+        assertEquals(30, TrackerCalculations.statementBreakMinutes(h(9), gapMinutes = 45, longestBlockMinutes = h(7)))
+        assertEquals(0, TrackerCalculations.statementBreakMinutes(h(9), gapMinutes = 45, longestBlockMinutes = h(6)))
+        assertEquals(30, TrackerCalculations.statementBreakMinutes(h(9, 32), gapMinutes = 45, longestBlockMinutes = h(7, 27)))
+        assertEquals(10, TrackerCalculations.statementBreakMinutes(h(6, 10), gapMinutes = 60, longestBlockMinutes = h(6, 5)))
+        assertEquals(20, TrackerCalculations.statementBreakMinutes(h(8), gapMinutes = 10, longestBlockMinutes = h(5)))
+    }
+
+    @Test
+    fun assignStatementBreaks_bookingOverSixHoursLosesThirtyMinutesDespiteTheGap() {
+        assertEquals(listOf(0.0, 30.0), TrackerCalculations.assignStatementBreaks(listOf("08:00" to "10:00", "10:45" to "18:00")))
+        assertEquals(listOf(0.0, 0.0), TrackerCalculations.assignStatementBreaks(listOf("08:00" to "10:00", "10:45" to "16:45")))
+    }
+
     // --- Special days 24 Dec (off) and 31 Dec (half day) ---------------------------------------
 
     @Test

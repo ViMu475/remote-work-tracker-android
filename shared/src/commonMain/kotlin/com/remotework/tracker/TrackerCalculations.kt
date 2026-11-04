@@ -27,16 +27,19 @@ object TrackerCalculations {
     /**
      * Minutes the time system deducts from the booked time of ONE day. Derived from real statements:
      * none up to 6 h; above 6 h 30 min, but never below 6 h net; above 9 h 45 min, but never below 9 h net.
-     * Gaps between the day's bookings already count as break.
+     * Gaps between the day's bookings already count as break, with one exception: a single booking
+     * longer than 6 h ([longestBlockMinutes]) is worked without a break, so the day still loses at least
+     * 30 min (or the whole required break if that is less) however long the gap is.
      */
-    fun statementBreakMinutes(workMinutes: Int, gapMinutes: Int = 0): Int {
+    fun statementBreakMinutes(workMinutes: Int, gapMinutes: Int = 0, longestBlockMinutes: Int = 0): Int {
         val required = when {
             workMinutes <= 360 -> 0
             workMinutes <= 390 -> workMinutes - 360
             workMinutes <= 570 -> 30
             else -> minOf(45, workMinutes - 540)
         }
-        return maxOf(0, required - maxOf(0, gapMinutes))
+        val floor = if (longestBlockMinutes > 360) minOf(required, 30) else 0
+        return maxOf(floor, required - maxOf(0, gapMinutes))
     }
 
     /**
@@ -55,10 +58,10 @@ object TrackerCalculations {
         val work = ordered.sumOf { it.second - it.first }
         var gaps = 0
         for (i in 0 until ordered.size - 1) gaps += maxOf(0, ordered[i + 1].first - ordered[i].second)
-        val deduction = statementBreakMinutes(work, gaps).toDouble()
+        val lengths = spans.map { it.second - it.first }
+        val deduction = statementBreakMinutes(work, gaps, lengths.max()).toDouble()
         // Longest session first (first one on ties); a session never carries more than its own length,
         // the rest of the day's deduction moves on to the next longest one.
-        val lengths = spans.map { it.second - it.first }
         val result = MutableList(spans.size) { 0.0 }
         var remaining = deduction
         for (i in spans.indices.sortedWith(compareBy({ -lengths[it] }, { it }))) {
