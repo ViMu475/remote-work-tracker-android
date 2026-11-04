@@ -9,8 +9,8 @@ The business logic lives in the Kotlin Multiplatform module `shared/`, the user 
 | Needs | Version |
 |---|---|
 | JDK | 17 (Temurin or similar) |
-| Android SDK | platform 34, build-tools 34 |
-| Gradle | wrapper included (`gradlew`, Gradle 8.5) — do not install Gradle separately |
+| Android SDK | platform 36 (compile and target), build-tools 36 |
+| Gradle | wrapper included (`gradlew`, Gradle 8.11.1) — do not install Gradle separately |
 
 Tell Gradle where the Android SDK is: set `ANDROID_HOME`, or create `local.properties` in the project root (git-ignored):
 
@@ -26,7 +26,7 @@ sdk.dir=/path/to/Android/Sdk
 # install on a connected device or running emulator
 ./gradlew :androidApp:installDebug
 
-# release build (unsigned until you add a signing config to androidApp/build.gradle.kts)
+# release build (signed when a git-ignored keystore.properties with storeFile, storePassword, keyAlias and keyPassword exists in the project root; unsigned otherwise)
 ./gradlew :androidApp:assembleRelease
 ./gradlew :androidApp:bundleRelease        # Android App Bundle for Google Play
 ```

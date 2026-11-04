@@ -27,3 +27,8 @@ iosApp/build/
 # Generated
 shared/build/
 androidApp/build/
+
+# Play upload key and its settings: never commit
+keystore.properties
+*.jks
+*.keystore
