@@ -19,7 +19,7 @@ import re
 import sys
 
 SKIP_DIRS = {'.git', 'venv', '.venv', '.venv-build', 'build', 'dist', 'node_modules', '__pycache__',
-             '.pytest_cache', 'real_statements', '.idea', '.claude', '.gradle', '.kotlin'}
+             '.pytest_cache', 'real_statements', '.idea', '.gradle', '.kotlin'}
 ALLOWED_IMAGE_DIRS = ('docs/test-screenshots/', 'androidApp/src/main/res/', 'iosApp/iosApp/Assets.xcassets/')
 SELF = {'check_privacy.py'}   # contain the patterns / sample strings on purpose
 
