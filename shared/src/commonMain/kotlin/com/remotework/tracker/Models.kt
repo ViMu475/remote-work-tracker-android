@@ -44,7 +44,9 @@ data class TrackerState(
     val language: String = "de",
     val darkMode: Boolean = false,
     /** Flextime balance of the last imported statement (null until a statement with a balance is imported). */
-    val gleitzeitSaldo: FlexBalance? = null
+    val gleitzeitSaldo: FlexBalance? = null,
+    /** Flextime per month (balance at the start/end and change), one entry per imported statement month. */
+    val gleitzeitVerlauf: List<FlexEntry> = emptyList()
 )
 
 object MonthNames {

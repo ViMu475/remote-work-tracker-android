@@ -114,7 +114,8 @@ class TrackerRepository(private val storage: LocalStorage) {
         fun ok(v: Double?) = v?.takeIf { it.isFinite() && kotlin.math.abs(it) < 10000.0 }
         val clean = balance.copy(previous = ok(balance.previous), current = ok(balance.current), total = ok(balance.total))
         if (clean.previous == null && clean.current == null && clean.total == null) return state
-        return state.copy(gleitzeitSaldo = clean)
+        // the latest balance for the dashboard, and the figures of this month for the flextime trend
+        return Flextime.record(state.copy(gleitzeitSaldo = clean), clean)
     }
 
     /**
@@ -625,7 +626,8 @@ class TrackerRepository(private val storage: LocalStorage) {
             monatlicheHistorie = normalizeHistory(parsed.monatlicheHistorie),
             currentMonthData = parsed.currentMonthData.copy(monat = monthName, jahr = parsed.aktuellesJahr),
             currentQuartal = TrackerCalculations.getQuartalForMonth(monthName, parsed.aktuellesJahr),
-            gleitzeitSaldo = null
+            gleitzeitSaldo = null,
+            gleitzeitVerlauf = Flextime.normalize(parsed.gleitzeitVerlauf)   // damaged entries are dropped, older backups have none
         )
         // The flextime balance is not covered by validateState: drop implausible figures and period data
         val saldo = parsed.gleitzeitSaldo?.let {

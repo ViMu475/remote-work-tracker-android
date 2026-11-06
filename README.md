@@ -52,6 +52,7 @@ The instrumented test `RealStatementsInstrumentedTest` needs real statements tha
 - ArbZG break rules for manual entries, weekend blocking, Bavarian holidays 2025–2030
 - Company special days in the target hours: 24 Dec is off, 31 Dec counts half (as in the statement's `Sollz`)
 - SAP time statement PDF import (imported entries carry no break warning); the flextime balance (GLZ-Saldo) of the statement is shown on the dashboard
+- Flextime (GLZ) per month from every statement: trend chart with the yellow (above ±40 h) and red (above ±60 h) zones, detailed month analysis (days, weeks, signs of overtime), proposals to reduce overtime and the flextime lines of the final report
 - CSV export, PDF monthly report, JSON backup and restore; dark mode; German/English
 
 ## Project structure

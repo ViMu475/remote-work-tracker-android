@@ -28,7 +28,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
+                api("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")   // part of the public API: Flextime.analyzeMonth / advice take a LocalDate
             }
         }
         val commonTest by getting {

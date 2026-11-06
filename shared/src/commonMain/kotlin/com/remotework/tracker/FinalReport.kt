@@ -19,14 +19,21 @@ object FinalReport {
 
     data class MonthRow(
         val monat: String, val jahr: Int, val quote: Double, val remote: Double, val maxRemote: Double,
-        val soll: Double, val gesamt: Double, val actualQuote: Double, val over: Boolean
+        val soll: Double, val gesamt: Double, val actualQuote: Double, val over: Boolean,
+        /** Flextime at the end of the month / change in the month / traffic light; null without statement data. */
+        val flexTotal: Double? = null, val flexChange: Double? = null, val flexStatus: FlexStatus? = null
     )
 
     data class QuarterReport(
         val quartal: String, val months: List<MonthRow>, val monthCount: Int, val complete: Boolean,
         val remote: Double, val maxRemote: Double, val soll: Double, val gesamt: Double,
-        val actualQuote: Double, val monthsOver: Int, val usage: Double, val rating: Rating
+        val actualQuote: Double, val monthsOver: Int, val usage: Double, val rating: Rating,
+        /** Flextime at the end of the quarter (last month with data) and the change over its months. */
+        val flexEnd: Double? = null, val flexChange: Double? = null, val flexStatus: FlexStatus? = null
     )
+
+    /** The whole flextime series (for the trend chart) and its summary. */
+    data class FlexReport(val series: List<FlexEntry>, val summary: FlexSummary)
 
     data class Overall(
         val months: Int, val monthsOver: Int, val quarters: Int, val quartersExceeded: Int,
@@ -34,7 +41,10 @@ object FinalReport {
         val rating: Rating?
     )
 
-    data class Report(val quarters: List<QuarterReport>, val overall: Overall)
+    data class Report(
+        val quarters: List<QuarterReport>, val overall: Overall,
+        val flex: FlexReport = FlexReport(emptyList(), Flextime.summarize(emptyList()))
+    )
 
     private fun round2(v: Double) = round(v * 100.0) / 100.0
 
@@ -53,9 +63,10 @@ object FinalReport {
 
     private fun quote(remote: Double, soll: Double) = if (soll > 0) remote / soll * 100.0 else 0.0
 
-    private fun row(m: MonthData) = MonthRow(
+    private fun row(m: MonthData, flex: FlexEntry? = null) = MonthRow(
         m.monat, m.jahr, m.individuelleQuote, m.istRemoteStundenLaufend, m.maxRemoteStunden,
-        m.sollStundenGesamt, m.istArbeitszeitLaufend, quote(m.istRemoteStundenLaufend, m.sollStundenGesamt), isOverQuota(m)
+        m.sollStundenGesamt, m.istArbeitszeitLaufend, quote(m.istRemoteStundenLaufend, m.sollStundenGesamt), isOverQuota(m),
+        flexTotal = flex?.gesamt, flexChange = flex?.aktuell, flexStatus = Flextime.status(flex?.gesamt)
     )
 
     private fun quartalKey(label: String): Pair<Int, Int> {
@@ -65,7 +76,9 @@ object FinalReport {
         return y to q
     }
 
-    fun build(history: List<MonthData>): Report {
+    /** [flexSeries] ([Flextime.series]) adds the flextime per month and quarter and the whole series for the chart. */
+    fun build(history: List<MonthData>, flexSeries: List<FlexEntry> = emptyList()): Report {
+        val flexByMonth = flexSeries.associateBy { it.jahr to it.monat }
         val seen = HashSet<Pair<String, Int>>()
         val groups = LinkedHashMap<String, MutableList<MonthData>>()
         for (m in sortHistory(history)) {
@@ -75,7 +88,9 @@ object FinalReport {
         }
 
         val quarters = groups.keys.sortedWith(compareBy({ quartalKey(it).first }, { quartalKey(it).second })).map { label ->
-            val rows = groups.getValue(label).map(::row)
+            val rows = groups.getValue(label).map { row(it, flexByMonth[it.jahr to MonthNames.getMonthNumber(it.monat)]) }
+            val flexEnd = rows.lastOrNull { it.flexTotal != null }?.flexTotal
+            val flexChanges = rows.mapNotNull { it.flexChange }
             val remote = rows.sumOf { it.remote }
             val limit = rows.sumOf { it.maxRemote }
             val soll = rows.sumOf { it.soll }
@@ -84,7 +99,9 @@ object FinalReport {
                 complete = rows.size >= MIN_MONTHS_FOR_COMPLETE_QUARTER,
                 remote = remote, maxRemote = limit, soll = soll, gesamt = rows.sumOf { it.gesamt },
                 actualQuote = quote(remote, soll), monthsOver = rows.count { it.over },
-                usage = if (limit > 0) remote / limit else 0.0, rating = rate(remote, limit)
+                usage = if (limit > 0) remote / limit else 0.0, rating = rate(remote, limit),
+                flexEnd = flexEnd, flexChange = if (flexChanges.isEmpty()) null else round2(flexChanges.sum()),
+                flexStatus = Flextime.status(flexEnd)
             )
         }
 
@@ -97,6 +114,6 @@ object FinalReport {
             remote = remote, maxRemote = limit, soll = soll, actualQuote = quote(remote, soll),
             rating = if (quarters.isEmpty()) null else rate(remote, limit)
         )
-        return Report(quarters, overall)
+        return Report(quarters, overall, FlexReport(flexSeries, Flextime.summarize(flexSeries)))
     }
 }

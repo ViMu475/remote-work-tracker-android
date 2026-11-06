@@ -148,7 +148,74 @@ internal val translations = mapOf(
         "report_remote" to "Remote",
         "pause_warning" to "WARNUNG: Pause (%sh) < gesetzl. Minimum (%sh)!",
         "switch_on" to "an",
-        "switch_off" to "aus"
+        "switch_off" to "aus",
+        "flex_title" to "Gleitzeit-Verlauf",
+        "flex_none" to "Noch keine Gleitzeit-Daten. Laden Sie Zeitnachweise, um den Verlauf zu sehen.",
+        "flex_chart_desc" to "Gleitzeit-Saldo pro Monat in Stunden. Aktuell %1\$s, Tiefstand %2\$s, Höchststand %3\$s.",
+        "flex_legend_total" to "Saldo am Monatsende",
+        "flex_legend_change" to "Änderung im Monat",
+        "flex_band_yellow" to "Gelb: über ±40 h",
+        "flex_band_red" to "Rot: über ±60 h (Kappung)",
+        "flex_gap_note" to "Gestrichelt: Monate ohne Nachweis",
+        "flex_latest" to "Aktuell",
+        "flex_min" to "Tiefstand",
+        "flex_max" to "Höchststand",
+        "flex_status_label" to "Status",
+        "flex_status_ok" to "Im grünen Bereich",
+        "flex_status_yellow_pos" to "Gelb: über 40 h",
+        "flex_status_red_pos" to "Rot: über 60 h",
+        "flex_status_yellow_neg" to "Gelb: unter −40 h",
+        "flex_status_red_neg" to "Rot: unter −60 h",
+        "flex_quarter_end" to "Gleitzeit Quartalsende",
+        "flex_short" to "GLZ",
+        "flex_advice_title" to "Empfehlungen",
+        "flex_advice_as_of" to "Grundlage: Saldo %1\$s am Ende %2\$s. Ziel: unter %3\$s h.",
+        "flex_month_title" to "Monatsanalyse",
+        "advice_prio_high" to "Dringend",
+        "advice_prio_medium" to "Empfohlen",
+        "advice_prio_info" to "Hinweis",
+        "advice_cap_cut" to "Das Saldo liegt über %1\$s h. Stunden über %1\$s h werden am Monatsende abgeschnitten (%2\$s h gehen verloren).",
+        "advice_reduce" to "Das Saldo von %1\$s h liegt %2\$s h über der gelben Grenze von %3\$s h. Ziel: unter %4\$s h, also %5\$s h abbauen.",
+        "advice_near_limit" to "Das Saldo von %1\$s h liegt nur %2\$s h unter der gelben Grenze von %3\$s h. Ein Puffer bis %4\$s h wäre sicherer (%5\$s h abbauen).",
+        "advice_flex_days" to "Gleitzeittage nehmen: %1\$s Tage à %2\$s h (volle Tage: %3\$s, dazu %4\$s h).",
+        "advice_shorter_days" to "Oder früher Feierabend machen: %1\$s h pro Tag an jedem der %2\$s Arbeitstage bis %3\$s.",
+        "advice_approval" to "Ab etwa 50 h mit der Führungskraft sprechen: Sie entscheidet, ob die Stunden abgebaut, vergütet oder ein weiterer Aufbau untersagt wird.",
+        "advice_trend_up" to "Das Saldo wächst im Schnitt um %1\$s h pro Monat. Ohne Gegenmaßnahme ist die gelbe Grenze von %2\$s h in etwa %3\$s Monaten erreicht.",
+        "advice_trend_up_over" to "Das Saldo wächst im Schnitt um %1\$s h pro Monat und steigt ohne Gegenmaßnahme weiter.",
+        "advice_long_days" to "Tage mit mehr als %1\$s h im letzten Monat: %2\$s. Tagesenden und Pausen prüfen, solche Tage vermeiden.",
+        "advice_daily_surplus" to "Im Schnitt %1\$s h mehr als das Soll von %2\$s h pro Tag, das sind rund %3\$s h im Monat.",
+        "advice_weekend_work" to "Einträge an Wochenende oder Feiertag: %1\$s. Dafür ist eine vorherige Genehmigung nötig.",
+        "advice_outside_window" to "Tage mit Arbeit vor 06:00 oder nach 20:00 Uhr: %1\$s. Diese Zeiten zählen nicht ins Gleitzeitkonto.",
+        "advice_build_up" to "Das Saldo ist negativ (%1\$s h). Zum Ausgleich %2\$s h mehr arbeiten oder Fehlbuchungen prüfen.",
+        "advice_check_missing" to "Das Saldo von %1\$s h ist stark negativ. Eventuell fehlen Arbeitszeiten: Buchungen prüfen (sechs Wochen rückwirkend selbst änderbar).",
+        "advice_on_track" to "Das Saldo von %1\$s h liegt im grünen Bereich. Keine Maßnahme nötig.",
+        "fm_balance_start" to "Saldo Monatsbeginn",
+        "fm_balance_end" to "Saldo Monatsende",
+        "fm_change_sap" to "Änderung (Nachweis)",
+        "fm_change_calc" to "Netto minus Soll (Einträge)",
+        "fm_difference" to "Differenz",
+        "fm_avg_day" to "Ø Netto pro Arbeitstag",
+        "fm_avg_times" to "Ø Beginn / Ende",
+        "fm_longest" to "Längster Tag",
+        "fm_long_days" to "Tage über 10 h",
+        "fm_outside" to "Vor 06:00 / nach 20:00",
+        "fm_non_working" to "Wochenende / Feiertag",
+        "fm_missing" to "Werktage ohne Eintrag",
+        "fm_diff_hint" to "Die Differenz entsteht durch Tage ohne Eintrag (Urlaub, Gleitzeittag, Abwesenheit) und die Rundung des Nachweises.",
+        "fm_weeks" to "Wochen",
+        "fm_days" to "Tage",
+        "fm_week_short" to "KW",
+        "fm_col_net" to "Netto",
+        "fm_col_soll" to "Soll",
+        "fm_col_delta" to "Δ Soll",
+        "fm_col_balance" to "Verlauf",
+        "fm_flag_no_entry" to "kein Eintrag",
+        "fm_flag_long_day" to "über 10 h",
+        "fm_flag_early" to "vor 06:00",
+        "fm_flag_late" to "nach 20:00",
+        "fm_flag_non_working_day" to "Wochenende/Feiertag",
+        "fm_no_data" to "Für diesen Monat sind keine Tageseinträge mehr vorhanden (zum Beispiel nach „Monat abschließen“). Es gelten die Zahlen des Nachweises.",
+        "fm_incomplete" to "Der Monat läuft noch: das Soll zählt nur bis heute."
     ),
     "en" to mapOf(
         "add_entry" to "Add Entry",
@@ -240,7 +307,74 @@ internal val translations = mapOf(
         "report_remote" to "Remote",
         "pause_warning" to "WARNING: break (%sh) shorter than statutory minimum (%sh)!",
         "switch_on" to "on",
-        "switch_off" to "off"
+        "switch_off" to "off",
+        "flex_title" to "Flextime trend",
+        "flex_none" to "No flextime data yet. Load time statements to see the trend.",
+        "flex_chart_desc" to "Flextime balance per month in hours. Current %1\$s, lowest %2\$s, highest %3\$s.",
+        "flex_legend_total" to "Balance at month end",
+        "flex_legend_change" to "Change during the month",
+        "flex_band_yellow" to "Yellow: beyond ±40 h",
+        "flex_band_red" to "Red: beyond ±60 h (cut off)",
+        "flex_gap_note" to "Dashed: months without a statement",
+        "flex_latest" to "Current",
+        "flex_min" to "Lowest",
+        "flex_max" to "Highest",
+        "flex_status_label" to "Status",
+        "flex_status_ok" to "In the green zone",
+        "flex_status_yellow_pos" to "Yellow: above 40 h",
+        "flex_status_red_pos" to "Red: above 60 h",
+        "flex_status_yellow_neg" to "Yellow: below −40 h",
+        "flex_status_red_neg" to "Red: below −60 h",
+        "flex_quarter_end" to "Flextime at quarter end",
+        "flex_short" to "Flex",
+        "flex_advice_title" to "Recommendations",
+        "flex_advice_as_of" to "Based on: balance %1\$s at the end of %2\$s. Goal: below %3\$s h.",
+        "flex_month_title" to "Month analysis",
+        "advice_prio_high" to "Urgent",
+        "advice_prio_medium" to "Recommended",
+        "advice_prio_info" to "Note",
+        "advice_cap_cut" to "The balance is above %1\$s h. Hours above %1\$s h are cut off at the end of the month (%2\$s h are lost).",
+        "advice_reduce" to "The balance of %1\$s h is %2\$s h above the yellow limit of %3\$s h. Goal: below %4\$s h, so reduce %5\$s h.",
+        "advice_near_limit" to "The balance of %1\$s h is only %2\$s h below the yellow limit of %3\$s h. A buffer down to %4\$s h would be safer (reduce %5\$s h).",
+        "advice_flex_days" to "Take flextime days: %1\$s days of %2\$s h (full days: %3\$s, plus %4\$s h).",
+        "advice_shorter_days" to "Or finish earlier: %1\$s h per day on each of the %2\$s working days until %3\$s.",
+        "advice_approval" to "From about 50 h, talk to your manager: they decide whether the hours are reduced, paid out or further build-up is forbidden.",
+        "advice_trend_up" to "The balance grows by %1\$s h per month on average. Without counter-measures the yellow limit of %2\$s h is reached in about %3\$s months.",
+        "advice_trend_up_over" to "The balance grows by %1\$s h per month on average and keeps rising without counter-measures.",
+        "advice_long_days" to "Days with more than %1\$s h last month: %2\$s. Check the end of the day and breaks, avoid such days.",
+        "advice_daily_surplus" to "On average %1\$s h more than the target of %2\$s h per day, about %3\$s h per month.",
+        "advice_weekend_work" to "Entries on a weekend or holiday: %1\$s. They need prior approval.",
+        "advice_outside_window" to "Days with work before 06:00 or after 20:00: %1\$s. These hours do not count towards flextime.",
+        "advice_build_up" to "The balance is negative (%1\$s h). To compensate, work %2\$s h more or check wrong bookings.",
+        "advice_check_missing" to "The balance of %1\$s h is strongly negative. Working hours may be missing: check the bookings (you can change them yourself up to six weeks back).",
+        "advice_on_track" to "The balance of %1\$s h is in the green zone. No action needed.",
+        "fm_balance_start" to "Balance at start of month",
+        "fm_balance_end" to "Balance at end of month",
+        "fm_change_sap" to "Change (statement)",
+        "fm_change_calc" to "Net minus target (entries)",
+        "fm_difference" to "Difference",
+        "fm_avg_day" to "Avg net per working day",
+        "fm_avg_times" to "Avg start / end",
+        "fm_longest" to "Longest day",
+        "fm_long_days" to "Days above 10 h",
+        "fm_outside" to "Before 06:00 / after 20:00",
+        "fm_non_working" to "Weekend / holiday",
+        "fm_missing" to "Working days without an entry",
+        "fm_diff_hint" to "The difference comes from days without an entry (leave, flextime day, absence) and the rounding of the statement.",
+        "fm_weeks" to "Weeks",
+        "fm_days" to "Days",
+        "fm_week_short" to "Wk",
+        "fm_col_net" to "Net",
+        "fm_col_soll" to "Target",
+        "fm_col_delta" to "Δ target",
+        "fm_col_balance" to "Running",
+        "fm_flag_no_entry" to "no entry",
+        "fm_flag_long_day" to "over 10 h",
+        "fm_flag_early" to "before 06:00",
+        "fm_flag_late" to "after 20:00",
+        "fm_flag_non_working_day" to "weekend/holiday",
+        "fm_no_data" to "There are no daily entries left for this month (for example after \"close month\"). The figures of the statement apply.",
+        "fm_incomplete" to "The month is still running: the target only counts until today."
     )
 )
 
@@ -329,6 +463,7 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showClearConfirm by rememberSaveable { mutableStateOf(false) }
     var showFinalReport by rememberSaveable { mutableStateOf(false) }
+    var showFlexDialog by rememberSaveable { mutableStateOf(false) }
     var showCloseConfirm by rememberSaveable { mutableStateOf(false) }
     var pendingDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
     var showSettingsSheet by rememberSaveable { mutableStateOf(false) }
@@ -561,6 +696,14 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
             item {
                 QuickStatsRow(state.currentMonthData, lang)
                 FlexBalanceLine(state.gleitzeitSaldo, lang)
+                if (Flextime.series(state).isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = { showFlexDialog = true },
+                        modifier = Modifier.padding(top = 8.dp).heightIn(min = ButtonMinHeight)
+                    ) {
+                        Text(t("flex_title", lang), maxLines = 1)
+                    }
+                }
             }
 
             // Current Month Entries
@@ -735,7 +878,11 @@ fun TrackerApp(repository: TrackerRepository, stateHolder: MutableState<TrackerS
     }
 
     if (showFinalReport) {
-        FinalReportDialog(FinalReport.build(state.monatlicheHistorie), lang) { showFinalReport = false }
+        FinalReportDialog(FinalReport.build(state.monatlicheHistorie, Flextime.series(state)), lang) { showFinalReport = false }
+    }
+
+    if (showFlexDialog) {
+        FlexDialog(state, lang) { showFlexDialog = false }
     }
 
     if (showCloseConfirm) {
@@ -1600,6 +1747,17 @@ fun FinalReportDialog(report: FinalReport.Report, lang: String, onDismiss: () ->
                             Text(monthsOverText(o.monthsOver, lang), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
+                    if (report.flex.series.isNotEmpty()) {
+                        Card(colors = appCardColors(), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    t("flex_title", lang), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                                FlexChart(report.flex.series, lang)
+                            }
+                        }
+                    }
                     for (q in report.quarters) {
                         val (bg, fg) = ratingColors(q.rating)
                         Card(colors = appCardColors(), modifier = Modifier.fillMaxWidth()) {
@@ -1620,6 +1778,14 @@ fun FinalReportDialog(report: FinalReport.Report, lang: String, onDismiss: () ->
                                     )
                                     ReportRow(t("report_quota", lang), "${fmtL(q.actualQuote, 2, lang)}%")
                                     Text(monthsOverText(q.monthsOver, lang), style = MaterialTheme.typography.bodyMedium)
+                                    q.flexEnd?.let { end ->
+                                        ReportRow(
+                                            t("flex_quarter_end", lang),
+                                            signedHours(end, lang) + (q.flexChange?.let { " (Δ ${signedHours(it, lang)})" } ?: ""),
+                                            bold = true
+                                        )
+                                        FlexStatusBadge(q.flexStatus, lang, Modifier.padding(top = 2.dp))
+                                    }
                                     Spacer(Modifier.height(4.dp))
                                     for (m in q.months) {
                                         val rowBg = if (m.over) MaterialTheme.colorScheme.errorContainer else Color.Transparent
@@ -1627,7 +1793,12 @@ fun FinalReportDialog(report: FinalReport.Report, lang: String, onDismiss: () ->
                                         CompositionLocalProvider(LocalContentColor provides rowFg) {
                                             ReportRow(
                                                 "${m.monat} ${m.jahr}",
-                                                "${h(m.remote)} / ${h(m.maxRemote)} | ${fmtL(m.actualQuote, 2, lang)}%",
+                                                "${h(m.remote)} / ${h(m.maxRemote)} | ${fmtL(m.actualQuote, 2, lang)}%" +
+                                                    (m.flexTotal?.let {
+                                                        "\n${t("flex_short", lang)} ${signedHours(it, lang)}" +
+                                                            (m.flexChange?.let { c -> " (${signedHours(c, lang)})" } ?: "") +
+                                                            if (m.flexStatus != null && m.flexStatus != FlexStatus.OK) " ⚠" else ""
+                                                    } ?: ""),
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(6.dp))
                                                     .background(rowBg)
